@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>アリスとトランプ心理戦</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vue 3 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.prod.min.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Zen Maru Gothic', sans-serif;
+      background: linear-gradient(135deg, #cffaff 0%, #e6fffa 50%, #bae6fd 100%);
+      min-height: 100vh;
+      color: #0f172a;
+      user-select: none;
+    }
+
+    @keyframes card-deal {
+      0% {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.8) rotate(-5deg);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotate(0deg);
+      }
+    }
+
+    .card-deal-anim {
+      animation: card-deal 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    /* 明るいターコイズ影 */
+    .pop-card-shadow {
+      box-shadow: 0 10px 25px -5px rgba(6, 182, 212, 0.2), 0 8px 10px -6px rgba(6, 182, 212, 0.15);
+    }
+
+    /* スクロールバー */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #e0f2fe;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #06b6d4;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center p-3 sm:p-6 min-h-screen">
+
+  <div id="app" class="w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl border-4 border-cyan-400 p-4 sm:p-6 text-slate-800 pop-card-shadow relative overflow-hidden">
+    
+    <!-- ヘッダー -->
+    <header class="flex justify-between items-center mb-4 pb-3 border-b-2 border-cyan-100">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🎴</span>
+        <h1 class="text-lg sm:text-xl font-black text-cyan-600">
+          アリスのトランプ心理戦
+        </h1>
+      </div>
+      <!-- 枠線白抜きボタン -->
+      <button @click="showRules = !showRules" class="text-xs bg-white text-cyan-600 border-2 border-cyan-400 hover:bg-cyan-50 px-3 py-1.5 rounded-full transition font-bold shadow-sm">
+        {{ showRules ? '閉じる' : 'ルール' }}
+      </button>
+    </header>
+
+    <!-- ルール説明モーダル -->
+    <div v-if="showRules" class="mb-4 p-4 bg-cyan-50 rounded-2xl border-2 border-cyan-300 text-xs text-cyan-950 space-y-2 leading-relaxed">
+      <p class="font-bold text-cyan-700 text-sm border-b border-cyan-200 pb-1">ゲームのルール</p>
+      <p>1. 親に2枚、子に1枚カードが配布されます。</p>
+      <p>2. 子は自分のカードを見て「ハイ」か「ロー」を宣言します（※数字札は該当範囲のみ、絵札J,Q,Kはどちらでも宣言可能）。</p>
+      <p>3. 親は2枚のうち1枚を表にし、子は【表のカードを選ぶ】か【裏のカードを選ぶ】か【山札から追加1枚引く】を選択します。</p>
+      <p>4. 最終合計の1の位（バカラ方式）が大きい方が勝利！ただし親が「J, Q, K」のペア（ロイヤルペア）なら無条件で親の勝ち！</p>
+    </div>
+
+    <!-- 総合スコア・ラウンド表示（INITフェーズおよびイベントシーン中は非表示） -->
+    <div v-if="phase !== 'INIT' && phase !== 'EVENT_SCENE'" class="flex justify-between items-center bg-cyan-50 p-3 rounded-2xl border-2 border-cyan-200 mb-4 text-xs font-bold text-cyan-900">
+      <div class="flex items-center gap-1.5">
+        <span class="text-cyan-600 font-extrabold">ROUND</span>
+        <span class="text-base font-black text-cyan-700">{{ currentRound + 1 }}</span>
+      </div>
+      <div class="flex gap-4">
+        <div>あなた: <span class="font-black text-sm text-cyan-600">{{ playerScore }}</span>勝</div>
+        <div>アリス: <span class="font-black text-sm text-rose-500">{{ cpuScore }}</span>勝</div>
+      </div>
+    </div>
+
+    <main>
+      
+      <!-- 1. メニュー画面 (INIT) -->
+      <div v-if="phase === 'INIT'" class="py-6 text-center space-y-6">
+        <div class="relative w-28 h-28 mx-auto">
+          <div class="absolute inset-0 bg-cyan-200 rounded-full blur-lg animate-pulse"></div>
+          <!-- アリスのアイコン風グラフィック -->
+          <div class="relative w-28 h-28 bg-cyan-100 rounded-full border-4 border-cyan-400 shadow-md flex items-center justify-center text-5xl">
+            👱🏻‍♀️
+          </div>
+        </div>
+
+        <div>
+          <h2 class="text-xl font-black text-cyan-700">ふたりきりの心理トランプ</h2>
+          <p class="text-xs text-cyan-600 font-bold mt-1">アリスのブラフを見破り勝利をつかもう！</p>
+        </div>
+
+        <!-- 枠線白抜きボタンエリア -->
+        <div class="space-y-3 pt-2 max-w-xs mx-auto">
+          <button @click="startWithOpening" class="w-full py-3.5 px-4 bg-white border-2 border-cyan-500 hover:bg-cyan-50 text-cyan-700 font-black rounded-2xl shadow-sm transition active:scale-95 text-sm flex items-center justify-center gap-2">
+            <span>📖</span> 冒頭イベントを見る
+          </button>
+          <button @click="startDirectly" class="w-full py-3.5 px-4 bg-white border-2 border-cyan-400 hover:bg-cyan-50 text-cyan-600 font-bold rounded-2xl shadow-sm transition active:scale-95 text-sm flex items-center justify-center gap-2">
+            <span>⚡</span> すぐにゲームを始める
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. イベントシーン (EVENT_SCENE) -->
+      <div v-else-if="phase === 'EVENT_SCENE'" class="py-4 space-y-4 cursor-pointer" @click="advanceDialogue">
+        <div class="relative w-32 h-32 mx-auto transition-all duration-300">
+          <div class="w-32 h-32 bg-cyan-100 rounded-full border-4 border-cyan-400 shadow-lg flex items-center justify-center text-6xl">
+            {{ currentSpeakerMood === 'happy' ? '😸' : currentSpeakerMood === 'troubled' ? '😿' : '👱🏻‍♀️' }}
+          </div>
+        </div>
+
+        <!-- セリフボックス（明るい白＋ターコイズ枠） -->
+        <div class="bg-cyan-50 border-2 border-cyan-400 rounded-2xl p-4 min-h-[120px] flex flex-col justify-between shadow-md relative">
+          <div>
+            <span class="text-xs font-black text-white bg-cyan-500 px-2.5 py-1 rounded-full inline-block mb-2 shadow-sm">
+              {{ currentDialogue.speaker }}
+            </span>
+            <p class="text-sm font-bold leading-relaxed text-slate-800">
+              {{ currentDialogue.text }}
+            </p>
+          </div>
+          <div class="text-right text-[10px] text-cyan-600 font-bold animate-bounce mt-2">
+            タップして次へ ▼
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. ゲーム盤面 -->
+      <div v-else-if="phase !== 'GAME_OVER'" class="space-y-4">
+
+        <!-- 配布案内メッセージ -->
+        <div v-if="phase === 'DEALING'" class="bg-cyan-100 text-cyan-800 border-2 border-cyan-300 font-black text-xs py-2 px-4 rounded-xl text-center shadow-sm animate-pulse">
+          🎴 カードを配っています...
+        </div>
+
+        <!-- CPUセリフ・思考ログ -->
+        <div v-if="girlLine || cpuThought" class="bg-cyan-50 border-2 border-cyan-200 rounded-2xl p-3 flex items-start gap-3">
+          <div class="text-3xl">👱🏻‍♀️</div>
+          <div class="text-xs space-y-1">
+            <p v-if="girlLine" class="font-bold text-cyan-900">「{{ girlLine }}」</p>
+            <p v-if="cpuThought" class="text-[11px] text-cyan-600 italic">💭 {{ cpuThought }}</p>
+          </div>
+        </div>
+
+        <!-- 親（ディーラー）の手札エリア -->
+        <div class="bg-cyan-50/60 border-2 border-cyan-200 rounded-2xl p-3 space-y-2">
+          <div class="flex justify-between items-center text-xs text-cyan-800 font-extrabold">
+            <span>親の手札 ({{ isPlayerDealer ? 'あなた' : 'アリス' }})</span>
+            <span v-if="dealerPublicIndex !== null" class="text-[10px] bg-cyan-200 text-cyan-800 border border-cyan-300 px-2 py-0.5 rounded-full font-bold">1枚公開中</span>
+          </div>
+
+          <div class="flex justify-center gap-3 min-h-[110px]">
+            <div v-for="(card, index) in dealerHand" :key="card.id" class="card-deal-anim">
+              <!-- 表表示（中央に数字 A~K を特大表示） -->
+              <div v-if="isPlayerDealer || phase === 'ROUND_RESULT' || index === dealerPublicIndex" 
+                   class="w-16 h-24 sm:w-20 sm:h-28 bg-white rounded-2xl border-2 border-cyan-400 flex flex-col justify-between p-2 shadow-md relative">
+                <div class="flex justify-between items-center text-xs font-black" :class="card.color">
+                  <span>{{ card.suit }}</span>
+                  <span>{{ card.rank }}</span>
+                </div>
+                <!-- ★ 数字を大きく中央表示 ★ -->
+                <div class="text-3xl sm:text-4xl font-black text-center my-auto leading-none" :class="card.color">
+                  {{ card.rank }}
+                </div>
+                <div class="flex justify-between items-center text-xs font-black" :class="card.color">
+                  <span>{{ card.rank }}</span>
+                  <span>{{ card.suit }}</span>
+                </div>
+              </div>
+              <!-- 裏表示 -->
+              <div v-else class="w-16 h-24 sm:w-20 sm:h-28 bg-cyan-400 rounded-2xl border-2 border-white flex items-center justify-center text-3xl text-white shadow-md">
+                🎴
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 子の手札エリア -->
+        <div class="bg-cyan-50/60 border-2 border-cyan-200 rounded-2xl p-3 space-y-2">
+          <div class="flex justify-between items-center text-xs text-cyan-800 font-extrabold">
+            <span>子の手札 ({{ isPlayerDealer ? 'アリス' : 'あなた' }})</span>
+            <span v-if="childDeclaration" class="bg-cyan-500 text-white font-black px-2.5 py-0.5 rounded-full text-[10px] shadow-sm">
+              宣言: {{ childDeclaration }}
+            </span>
+          </div>
+
+          <div class="flex justify-center gap-3 min-h-[110px]">
+            <div v-for="(card, index) in childHand" :key="card.id" class="card-deal-anim">
+              <!-- 表表示（中央に数字 A~K を特大表示） -->
+              <div v-if="!isPlayerDealer || phase === 'ROUND_RESULT'" 
+                   class="w-16 h-24 sm:w-20 sm:h-28 bg-white rounded-2xl border-2 border-cyan-400 flex flex-col justify-between p-2 shadow-md relative">
+                <div class="flex justify-between items-center text-xs font-black" :class="card.color">
+                  <span>{{ card.suit }}</span>
+                  <span>{{ card.rank }}</span>
+                </div>
+                <!-- ★ 数字を大きく中央表示 ★ -->
+                <div class="text-3xl sm:text-4xl font-black text-center my-auto leading-none" :class="card.color">
+                  {{ card.rank }}
+                </div>
+                <div class="flex justify-between items-center text-xs font-black" :class="card.color">
+                  <span>{{ card.rank }}</span>
+                  <span>{{ card.suit }}</span>
+                </div>
+              </div>
+              <div v-else class="w-16 h-24 sm:w-20 sm:h-28 bg-cyan-400 rounded-2xl border-2 border-white flex items-center justify-center text-3xl text-white shadow-md">
+                🎴
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- アクションボタンエリア（枠線白抜きデザイン） -->
+        <div class="space-y-2 pt-2">
+          <!-- 1. 子の宣言 (ハイ / ロー) -->
+          <div v-if="!isPlayerDealer && phase === 'DEALT' && !childDeclaration" class="space-y-2">
+            <p class="text-center text-xs text-cyan-800 font-bold">
+              手札を見てハイ/ローを宣言してください<br>
+              <span class="text-[10px] text-cyan-600 font-normal">※数字札(A~10)は対応する選択肢のみ、絵札(J,Q,K)はどちらも選択可能です</span>
+            </p>
+            <div class="grid grid-cols-2 gap-3">
+              <button 
+                @click="canDeclareHigh && makeDeclaration('ハイ')" 
+                :disabled="!canDeclareHigh"
+                :class="canDeclareHigh ? 'bg-white text-cyan-700 border-2 border-cyan-500 hover:bg-cyan-50 active:scale-95 shadow-sm' : 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed opacity-50'"
+                class="py-3 font-black rounded-xl transition">
+                ハイ (6〜K)
+              </button>
+              <button 
+                @click="canDeclareLow && makeDeclaration('ロー')" 
+                :disabled="!canDeclareLow"
+                :class="canDeclareLow ? 'bg-white text-teal-700 border-2 border-teal-500 hover:bg-teal-50 active:scale-95 shadow-sm' : 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed opacity-50'"
+                class="py-3 font-black rounded-xl transition">
+                ロー (A〜5)
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. 子のアクション選択 (表カード / 裏カード / 追加1枚) -->
+          <div v-if="!isPlayerDealer && phase === 'DECLARED'" class="space-y-2">
+            <p class="text-center text-xs text-cyan-800 font-bold">勝負のカードを選択してください</p>
+            <div class="grid grid-cols-3 gap-2">
+              <button @click="chooseChildAction('FACE_UP')" class="py-2.5 bg-white text-cyan-700 border-2 border-cyan-400 hover:bg-cyan-50 text-xs font-bold rounded-xl transition shadow-sm">
+                表カードと勝負
+              </button>
+              <button @click="chooseChildAction('FACE_DOWN')" class="py-2.5 bg-white text-cyan-800 border-2 border-cyan-500 hover:bg-cyan-50 text-xs font-bold rounded-xl transition shadow-sm">
+                裏カードと勝負
+              </button>
+              <button @click="chooseChildAction('DRAW')" class="py-2.5 bg-white text-teal-700 border-2 border-teal-400 hover:bg-teal-50 text-xs font-bold rounded-xl transition shadow-sm">
+                山札から1枚引く
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. ラウンド結果・次へボタン -->
+          <div v-if="phase === 'ROUND_RESULT'" class="space-y-3 text-center py-2">
+            <div class="text-sm font-black text-cyan-900 bg-cyan-100 py-2.5 rounded-xl border-2 border-cyan-300 shadow-sm">
+              {{ roundResultMessage }}
+            </div>
+            <button @click="nextRound" class="w-full py-3 bg-white text-cyan-700 border-2 border-cyan-500 font-black rounded-xl hover:bg-cyan-50 active:scale-95 transition shadow-sm">
+              {{ currentRound + 1 < maxRounds ? '次のラウンドへ' : '最終結果を見る' }}
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 4. サスペンス（演出遮蔽）画面 -->
+      <div v-if="phase === 'SUSPENSE'" class="fixed inset-0 bg-cyan-500/95 z-50 flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div class="text-6xl animate-bounce">🎴</div>
+        <h3 class="text-2xl font-black text-white tracking-wider">さあ、勝負…！</h3>
+        <p class="text-xs text-cyan-100 font-bold">カードを開いています</p>
+      </div>
+
+      <!-- 5. 最終結果画面 (GAME_OVER) -->
+      <div v-if="phase === 'GAME_OVER'" class="py-6 text-center space-y-6">
+        <h2 class="text-2xl font-black text-cyan-700">対戦結果</h2>
+        
+        <div class="p-4 bg-cyan-50 rounded-2xl border-2 border-cyan-300 space-y-3 shadow-sm">
+          <div class="text-4xl">
+            {{ playerScore > cpuScore ? '👑 勝利！' : playerScore < cpuScore ? '💔 敗北…' : '🤝 引き分け' }}
+          </div>
+          <div class="text-sm text-cyan-900 font-bold">
+            あなた {{ playerScore }} 勝 - {{ cpuScore }} 勝 アリス
+          </div>
+        </div>
+
+        <button @click="resetToInit" class="w-full py-3.5 bg-white border-2 border-cyan-500 text-cyan-700 font-black rounded-2xl shadow-sm hover:bg-cyan-50 transition active:scale-95">
+          タイトルに戻る
+        </button>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue
+
+    createApp({
+      setup() {
+        // フェーズ: INIT, EVENT_SCENE, DEALING, DEALT, DECLARED, SUSPENSE, ROUND_RESULT, GAME_OVER
+        const phase = ref('INIT')
+        const showRules = ref(false)
+
+        const currentRound = ref(0)
+        const maxRounds = ref(5)
+        const playerScore = ref(0)
+        const cpuScore = ref(0)
+
+        const isPlayerDealer = ref(false)
+        const deck = ref([])
+        const childHand = ref([])
+        const dealerHand = ref([])
+
+        const childDeclaration = ref('')
+        const dealerPublicIndex = ref(null)
+        const girlLine = ref('')
+        const cpuThought = ref('')
+        const roundResultMessage = ref('')
+
+        // 宣言可能な条件判定（数字札は該当範囲のみ / 絵札J,Q,Kはどちらも可能）
+        const canDeclareHigh = computed(() => {
+          if (!childHand.value.length) return false
+          const card = childHand.value[0]
+          return card.isFaceCard || card.numValue >= 6
+        })
+
+        const canDeclareLow = computed(() => {
+          if (!childHand.value.length) return false
+          const card = childHand.value[0]
+          return card.isFaceCard || card.numValue <= 5
+        })
+
+        // イベント会話用
+        const currentDialogueList = ref([])
+        const dialogueIndex = ref(0)
+        const currentDialogue = ref({ speaker: '', text: '' })
+        const currentSpeakerMood = ref('normal')
+        let onEventComplete = null
+
+        // Web Audio API サウンド効果
+        const playSound = (type) => {
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)()
+            const osc = ctx.createOscillator()
+            const gain = ctx.createGain()
+            osc.connect(gain)
+            gain.connect(ctx.destination)
+
+            if (type === 'flip') {
+              osc.frequency.setValueAtTime(400, ctx.currentTime)
+              osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.08)
+              gain.gain.setValueAtTime(0.3, ctx.currentTime)
+              gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.08)
+              osc.start()
+              osc.stop(ctx.currentTime + 0.08)
+            } else if (type === 'win') {
+              osc.frequency.setValueAtTime(523.25, ctx.currentTime)
+              osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1)
+              gain.gain.setValueAtTime(0.2, ctx.currentTime)
+              gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.3)
+              osc.start()
+              osc.stop(ctx.currentTime + 0.3)
+            }
+          } catch (e) {
+            // Audio Context blocked or not supported
+          }
+        }
+
+        // 会話データ定義
+        const eventDialogues = {
+          opening: [
+            { speaker: 'アリス', mood: 'normal', text: '「ふふ、よく来てくれたわね。挑戦者さん！」' },
+            { speaker: 'アリス', mood: 'happy', text: '「私のブラフを見破れるかしら？ 勝負よ！」' }
+          ],
+          endingWin: [
+            { speaker: 'アリス', mood: 'troubled', text: '「そんな…私の心理戦が見破られるなんて…」' },
+            { speaker: 'アリス', mood: 'happy', text: '「見事な勝利よ！参りました♪」' }
+          ],
+          endingLose: [
+            { speaker: 'アリス', mood: 'happy', text: '「私の勝ちね！まだまだ甘いわ、挑戦者さん♪」' }
+          ]
+        }
+
+        const startEventScene = (key, callback) => {
+          phase.value = 'EVENT_SCENE'
+          currentDialogueList.value = eventDialogues[key]
+          dialogueIndex.value = 0
+          onEventComplete = callback
+          updateDialogue()
+        }
+
+        const updateDialogue = () => {
+          if (dialogueIndex.value < currentDialogueList.value.length) {
+            const d = currentDialogueList.value[dialogueIndex.value]
+            currentDialogue.value = d
+            currentSpeakerMood.value = d.mood
+          } else {
+            if (onEventComplete) onEventComplete()
+          }
+        }
+
+        const advanceDialogue = () => {
+          dialogueIndex.value++
+          updateDialogue()
+        }
+
+        // デッキ生成
+        const createDeck = () => {
+          const suits = ['♠', '♥', '♦', '♣']
+          const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+          let d = []
+          let id = 1
+          for (let suit of suits) {
+            for (let i = 0; i < ranks.length; i++) {
+              const rank = ranks[i]
+              const numValue = i + 1
+              const score = numValue >= 10 ? 0 : numValue
+              const isFaceCard = ['J', 'Q', 'K'].includes(rank)
+              const color = (suit === '♥' || suit === '♦') ? 'text-rose-500' : 'text-slate-700'
+              d.push({ id: id++, suit, rank, numValue, score, isFaceCard, color })
+            }
+          }
+          return d.sort(() => Math.random() - 0.5)
+        }
+
+        const startWithOpening = () => {
+          startEventScene('opening', () => {
+            initGameData()
+            startRound()
+          })
+        }
+
+        const startDirectly = () => {
+          initGameData()
+          startRound()
+        }
+
+        const initGameData = () => {
+          currentRound.value = 0
+          playerScore.value = 0
+          cpuScore.value = 0
+        }
+
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+        // ラウンド開始 ＆ アニメーション付き配布
+        const startRound = async () => {
+          phase.value = 'DEALING'
+          childHand.value = []
+          dealerHand.value = []
+          childDeclaration.value = ''
+          dealerPublicIndex.value = null
+          girlLine.value = ''
+          cpuThought.value = ''
+
+          deck.value = createDeck()
+          const c1 = deck.value.pop()
+          const d1 = deck.value.pop()
+          const d2 = deck.value.pop()
+
+          // 1. 子に配る
+          await delay(250)
+          playSound('flip')
+          childHand.value.push(c1)
+
+          // 2. 親1枚目
+          await delay(400)
+          playSound('flip')
+          dealerHand.value.push(d1)
+
+          // 3. 親2枚目
+          await delay(400)
+          playSound('flip')
+          dealerHand.value.push(d2)
+
+          await delay(400)
+          phase.value = 'DEALT'
+        }
+
+        // ハイ/ロー宣言
+        const makeDeclaration = (dec) => {
+          childDeclaration.value = dec
+          // 親（アリス）が1枚公開するカードを選択
+          dealerPublicIndex.value = Math.floor(Math.random() * 2)
+          girlLine.value = `ふふ、宣言は「${dec}」ね！公開カードはこれにするわ。`
+          phase.value = 'DECLARED'
+        }
+
+        // 子のアクション（勝負）
+        const chooseChildAction = async (action) => {
+          phase.value = 'SUSPENSE'
+          await delay(1200) // サスペンス演出待ち
+
+          let finalChildHand = [...childHand.value]
+          if (action === 'DRAW') {
+            finalChildHand.push(deck.value.pop())
+          }
+
+          childHand.value = finalChildHand
+
+          // 勝敗判定（バカラ方式: 1の位が大きい方が勝ち、ロイヤルペアは親勝利）
+          const dealerRoyal = dealerHand.value.every(c => c.isFaceCard)
+          const childScore = finalChildHand.reduce((s, c) => s + c.score, 0) % 10
+          const dealerScore = dealerHand.value.reduce((s, c) => s + c.score, 0) % 10
+
+          let resultText = ''
+          if (dealerRoyal) {
+            resultText = 'アリスのロイヤルペア達成！親の勝利！'
+            cpuScore.value++
+          } else if (childScore > dealerScore) {
+            resultText = `あなたの勝ち！ (${childScore}点 vs ${dealerScore}点)`
+            playerScore.value++
+            playSound('win')
+          } else if (childScore < dealerScore) {
+            resultText = `アリスの勝ち！ (${childScore}点 vs ${dealerScore}点)`
+            cpuScore.value++
+          } else {
+            resultText = `引き分け (${childScore}点)`
+          }
+
+          roundResultMessage.value = resultText
+          phase.value = 'ROUND_RESULT'
+        }
+
+        const nextRound = () => {
+          if (currentRound.value + 1 < maxRounds.value) {
+            currentRound.value++
+            startRound()
+          } else {
+            // ゲーム終了イベントへ
+            const endingKey = playerScore.value >= cpuScore.value ? 'endingWin' : 'endingLose'
+            startEventScene(endingKey, () => {
+              phase.value = 'GAME_OVER'
+            })
+          }
+        }
+
+        const resetToInit = () => {
+          phase.value = 'INIT'
+        }
+
+        return {
+          phase,
+          showRules,
+          currentRound,
+          maxRounds,
+          playerScore,
+          cpuScore,
+          isPlayerDealer,
+          childHand,
+          dealerHand,
+          childDeclaration,
+          dealerPublicIndex,
+          girlLine,
+          cpuThought,
+          roundResultMessage,
+          currentDialogue,
+          currentSpeakerMood,
+          canDeclareHigh,
+          canDeclareLow,
+          startWithOpening,
+          startDirectly,
+          advanceDialogue,
+          makeDeclaration,
+          chooseChildAction,
+          nextRound,
+          resetToInit
+        }
+      }
+    }).mount('#app')
+  </script>
+</body>
+</html>
