@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Short Deck Poker Bet - Probability Adjusted Scores</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-12">
+
+  <!-- ヘッダー / スコアボード -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div>
+        <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+          <span>♠</span> Short Deck Poker Bet
+          <span class="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">確率調整pt版</span>
+        </h1>
+        <div class="flex items-center gap-2 mt-0.5">
+          <p class="text-xs text-slate-500">ラウンド <span id="round-num" class="font-bold text-indigo-600">1</span> / 3</p>
+          <span class="text-slate-300">|</span>
+          <p class="text-xs text-slate-500 flex items-center gap-1">
+            CPU性格: <span id="cpu-personality-tag" class="font-bold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded">---</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-6">
+        <div class="text-right">
+          <div class="text-xs text-slate-500 font-semibold">あなた</div>
+          <div id="player-score" class="text-2xl font-black text-indigo-600">0 pt</div>
+        </div>
+        <div class="text-slate-300 font-light text-2xl">|</div>
+        <div class="text-left">
+          <div class="text-xs text-slate-500 font-semibold">CPU</div>
+          <div id="cpu-score" class="text-2xl font-black text-rose-600">0 pt</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 mt-6 space-y-6">
+
+    <!-- コミュニティカードエリア -->
+    <section class="bg-white rounded-2xl p-4 border border-slate-200 card-shadow text-center">
+      <div class="flex justify-between items-center mb-2 px-2">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <span>🌐</span> コミュニティカード (全列共有)
+        </h2>
+        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">全列共通 3枚</span>
+      </div>
+      <div id="community-cards" class="flex gap-3 justify-center py-1">
+        <!-- JSで描画 -->
+      </div>
+    </section>
+
+    <!-- 区切り線演出 -->
+    <div class="relative flex py-1 items-center">
+      <div class="flex-grow border-t border-slate-300"></div>
+      <span class="flex-shrink mx-4 text-xs font-bold text-slate-400 uppercase tracking-widest">4つの「列」で対戦</span>
+      <div class="flex-grow border-t border-slate-300"></div>
+    </div>
+
+    <!-- 4列（縦カラム）レイアウト -->
+    <section class="space-y-3">
+      <div class="flex justify-between items-center px-1">
+        <div class="text-xs text-slate-500">
+          手持ちチップ: <span id="remaining-chips" class="font-bold text-indigo-600 text-base">13</span> / 13 枚
+        </div>
+        <div class="text-xs text-slate-400">各列にチップを振分けてベット</div>
+      </div>
+
+      <!-- 4列グリッド -->
+      <div id="lanes-container" class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <!-- JSで動的に4つの縦カラムを生成 -->
+      </div>
+    </section>
+
+    <!-- 操作パネル ＆ 新配点表 -->
+    <div class="bg-white rounded-2xl p-4 border border-slate-200 card-shadow flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div class="text-xs text-slate-600 space-y-1">
+        <div class="font-bold text-indigo-900">📊 新・確率準拠ポイントテーブル:</div>
+        <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+          <span class="bg-slate-100 px-1.5 py-0.5 rounded">1ペア: <b>2pt</b></span>
+          <span class="bg-slate-100 px-1.5 py-0.5 rounded">2ペア: <b>4pt</b></span>
+          <span class="bg-slate-100 px-1.5 py-0.5 rounded">3カード: <b>6pt</b></span>
+          <span class="bg-amber-100 text-amber-900 font-bold px-1.5 py-0.5 rounded">ハイカード / ストレート: 10pt</span>
+          <span class="bg-purple-100 text-purple-900 font-bold px-1.5 py-0.5 rounded">フルハウス: 12pt</span>
+          <span class="bg-rose-100 text-rose-900 font-bold px-1.5 py-0.5 rounded">フラッシュ以上: 16pt</span>
+        </div>
+      </div>
+      <button id="action-btn" onclick="confirmBet()" class="w-full sm:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+        ベットを確定する
+      </button>
+    </div>
+
+    <!-- ゲームログ -->
+    <section class="bg-white rounded-2xl p-4 border border-slate-200 card-shadow">
+      <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">ログ</h3>
+      <div id="game-log" class="text-xs text-slate-600 space-y-1 max-h-28 overflow-y-auto font-mono">
+        <div>ゲーム開始！チップ13枚を各列に振分けてください。</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // --- カード・デッキロジック ---
+    const SUITS = ['♠', '♥', '♦', '♣'];
+    const VALUES = [8, 9, 10, 11, 12, 13, 14]; // 2〜7排除（28枚）
+
+    let deck = [];
+    let currentRound = 1;
+    let playerScore = 0;
+    let cpuScore = 0;
+
+    let communityCards = [];
+    let lanes = []; 
+    let gameState = 'BETTING';
+
+    // CPUの個性設定
+    const PERSONALITIES = [
+      { name: '⚖️ バランス型', type: 'BALANCED', desc: '全列にまんべんなくチップを分散する安定重視派' },
+      { name: '🎯 一点集中型', type: 'AGGRESSIVE', desc: '自信のある1列に大量チップを注ぎ込む勝負師派' },
+      { name: '📊 確率重視型', type: 'ANALYTICAL', desc: 'カードの強さに応じて精密にチップを分配する理論派' }
+    ];
+    let currentCpuPersonality = null;
+
+    function createDeck() {
+      let d = [];
+      for (let s of SUITS) {
+        for (let v of VALUES) {
+          d.push({ suit: s, value: v, isJoker: false });
+        }
+      }
+      return d;
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    // --- ゲーム進行制御 ---
+    function initRound() {
+      gameState = 'BETTING';
+      deck = shuffle(createDeck());
+
+      if (currentRound === 1 || !currentCpuPersonality) {
+        currentCpuPersonality = PERSONALITIES[Math.floor(Math.random() * PERSONALITIES.length)];
+      }
+
+      document.getElementById('cpu-personality-tag').innerText = currentCpuPersonality.name;
+
+      // コミュニティカード3枚
+      communityCards = [deck.pop(), deck.pop(), deck.pop()];
+
+      // 4列に1枚ずつ
+      lanes = [];
+      for (let i = 0; i < 4; i++) {
+        lanes.push({
+          initialCard: deck.pop(),
+          fifthCard: null,
+          playerBet: 0,
+          cpuBet: 0,
+          winner: null,
+          pHandName: '',
+          cHandName: '',
+          pPts: 0,
+          cPts: 0
+        });
+      }
+
+      document.getElementById('round-num').innerText = currentRound;
+      document.getElementById('action-btn').innerText = 'ベットを確定する';
+      document.getElementById('action-btn').disabled = false;
+      document.getElementById('action-btn').onclick = confirmBet;
+
+      log(`--- ラウンド ${currentRound} 開始 （CPU: ${currentCpuPersonality.name}） ---`);
+      render();
+    }
+
+    function changeBet(laneIdx, delta) {
+      if (gameState !== 'BETTING') return;
+      
+      const currentTotal = lanes.reduce((sum, l) => sum + l.playerBet, 0);
+      const lane = lanes[laneIdx];
+
+      if (delta > 0 && currentTotal < 13) {
+        lane.playerBet++;
+      } else if (delta < 0 && lane.playerBet > 0) {
+        lane.playerBet--;
+      }
+      render();
+    }
+
+    function confirmBet() {
+      const currentTotal = lanes.reduce((sum, l) => sum + l.playerBet, 0);
+      if (currentTotal !== 13) {
+        alert('チップ13枚をすべて配分してください！');
+        return;
+      }
+
+      gameState = 'SHOWDOWN';
+      document.getElementById('action-btn').disabled = true;
+
+      // CPUのベットロジックを実行
+      decideCpuBet();
+
+      log(`両者のベット完了！（CPU思考パターン: ${currentCpuPersonality.name}）`);
+
+      // 勝者判定（チップ数比較）
+      lanes.forEach((l) => {
+        if (l.playerBet > l.cpuBet) {
+          l.winner = 'PLAYER';
+        } else if (l.cpuBet > l.playerBet) {
+          l.winner = 'CPU';
+        } else {
+          l.winner = 'DRAW';
+        }
+      });
+
+      // 5枚目のカード準備（山札の上から4枚 + ジョーカー1枚）
+      let fifthPool = [deck.pop(), deck.pop(), deck.pop(), deck.pop(), { suit: '🃏', value: 99, isJoker: true }];
+      fifthPool = shuffle(fifthPool);
+
+      // 各列に5枚目を配布
+      lanes.forEach((l, idx) => {
+        l.fifthCard = fifthPool[idx];
+      });
+
+      // 得点計算
+      calculateScores();
+
+      render();
+
+      // 次のフェーズ用ボタン設定
+      setTimeout(() => {
+        if (currentRound < 3) {
+          document.getElementById('action-btn').innerText = '次のラウンドへ';
+          document.getElementById('action-btn').onclick = nextRound;
+        } else {
+          document.getElementById('action-btn').innerText = '最終結果を見る';
+          document.getElementById('action-btn').onclick = finishGame;
+        }
+        document.getElementById('action-btn').disabled = false;
+      }, 800);
+    }
+
+    // --- CPU思考アルゴリズム ---
+    function decideCpuBet() {
+      let cpuBets = [0, 0, 0, 0];
+      let remaining = 13;
+
+      let laneScores = lanes.map(l => {
+        let cards = [...communityCards, l.initialCard];
+        return evaluate4Cards(cards).score;
+      });
+
+      if (currentCpuPersonality.type === 'BALANCED') {
+        cpuBets = [3, 3, 3, 3];
+        remaining = 1;
+        let maxIdx = laneScores.indexOf(Math.max(...laneScores));
+        cpuBets[maxIdx]++;
+
+      } else if (currentCpuPersonality.type === 'AGGRESSIVE') {
+        let bestIdx = laneScores.indexOf(Math.max(...laneScores));
+        let heavyBet = 7;
+        cpuBets[bestIdx] = heavyBet;
+        remaining -= heavyBet;
+
+        for (let i = 0; i < 4; i++) {
+          if (i !== bestIdx) {
+            cpuBets[i] = 2;
+            remaining -= 2;
+          }
+        }
+
+      } else {
+        let totalScore = laneScores.reduce((a, b) => a + b, 0);
+        for (let i = 0; i < 4; i++) {
+          let b = Math.floor((laneScores[i] / totalScore) * 13);
+          cpuBets[i] = b;
+          remaining -= b;
+        }
+        while (remaining > 0) {
+          let bestIdx = laneScores.indexOf(Math.max(...laneScores));
+          cpuBets[bestIdx]++;
+          remaining--;
+        }
+      }
+
+      lanes.forEach((l, i) => l.cpuBet = cpuBets[i]);
+    }
+
+    function nextRound() {
+      currentRound++;
+      initRound();
+    }
+
+    function finishGame() {
+      gameState = 'GAME_OVER';
+      let msg = '';
+      if (playerScore > cpuScore) msg = '🎉 あなたの勝利です！';
+      else if (cpuScore > playerScore) msg = '😭 CPUの勝利です...';
+      else msg = '🤝 引き分けです！';
+
+      alert(`【ゲーム終了】\nあなた: ${playerScore} pt\nCPU: ${cpuScore} pt\n\n${msg}`);
+      
+      currentRound = 1;
+      playerScore = 0;
+      cpuScore = 0;
+      document.getElementById('player-score').innerText = '0 pt';
+      document.getElementById('cpu-score').innerText = '0 pt';
+      initRound();
+    }
+
+    // --- ポーカー役判定 (4枚用：暫定評価) ---
+    function evaluate4Cards(cards) {
+      let vals = cards.map(c => c.value);
+      let counts = {};
+      vals.forEach(v => counts[v] = (counts[v] || 0) + 1);
+      let countValues = Object.values(counts).sort((a,b) => b - a);
+
+      if (countValues[0] === 4) return { name: 'フォーカード', score: 16 };
+      if (countValues[0] === 3) return { name: 'スリーカード', score: 6 };
+      if (countValues[0] === 2 && countValues[1] === 2) return { name: 'ツーペア', score: 4 };
+      if (countValues[0] === 2) return { name: 'ワンペア', score: 2 };
+      return { name: 'ハイカード', score: 10 }; // 新ルール: ハイカードは高価値
+    }
+
+    // --- ポーカー役判定 (5枚用：新配点ルール) ---
+    function evaluate5Cards(cards) {
+      const hasJoker = cards.some(c => c.isJoker);
+      
+      if (!hasJoker) {
+        return calcBestHand(cards);
+      } else {
+        let best = { rank: 0, name: 'ハイカード', pts: 10 };
+        const regularCards = cards.filter(c => !c.isJoker);
+
+        for (let s of SUITS) {
+          for (let v of VALUES) {
+            let testSet = [...regularCards, { suit: s, value: v, isJoker: false }];
+            let res = calcBestHand(testSet);
+            if (res.pts > best.pts) {
+              best = res;
+            }
+          }
+        }
+        best.hasJoker = true;
+        return best;
+      }
+    }
+
+    // ★ 新・確率調整済み配点計算 ★
+    function calcBestHand(cards) {
+      const vals = cards.map(c => c.value).sort((a,b) => a - b);
+      const suits = cards.map(c => c.suit);
+
+      const isFlush = suits.every(s => s === suits[0]);
+      
+      // 厳格なストレート判定（10-J-Q-K-AのみA使用可能）
+      let isStraight = false;
+      const uniqueVals = [...new Set(vals)];
+      if (uniqueVals.length === 5) {
+        if (vals[4] - vals[0] === 4) {
+          isStraight = true;
+        }
+      }
+
+      let counts = {};
+      vals.forEach(v => counts[v] = (counts[v] || 0) + 1);
+      let countValues = Object.values(counts).sort((a,b) => b - a);
+
+      // フラッシュ以上（16pt）
+      if (countValues[0] === 5) return { name: 'ファイブカード', pts: 16 };
+      if (isStraight && isFlush) return { name: 'ストレートフラッシュ', pts: 16 };
+      if (countValues[0] === 4) return { name: 'フォーカード', pts: 16 };
+      if (isFlush) return { name: 'フラッシュ', pts: 16 };
+
+      // フルハウス（12pt）
+      if (countValues[0] === 3 && countValues[1] === 2) return { name: 'フルハウス', pts: 12 };
+
+      // ハイカード / ストレート（10pt）
+      if (isStraight) return { name: 'ストレート', pts: 10 };
+      if (countValues[0] === 1) return { name: 'ハイカード', pts: 10 }; // ノーペア
+
+      // スリーカード（6pt）
+      if (countValues[0] === 3) return { name: 'スリーカード', pts: 6 };
+
+      // ツーペア（4pt）
+      if (countValues[0] === 2 && countValues[1] === 2) return { name: 'ツーペア', pts: 4 };
+
+      // ワンペア（2pt）
+      if (countValues[0] === 2) return { name: 'ワンペア', pts: 2 };
+
+      return { name: 'ハイカード', pts: 10 };
+    }
+
+    function calculateScores() {
+      lanes.forEach((l, idx) => {
+        let allCards = [...communityCards, l.initialCard, l.fifthCard];
+        let evalRes = evaluate5Cards(allCards);
+
+        let handLabel = evalRes.name + (evalRes.hasJoker ? ' (🃏)' : '');
+        l.finalHandLabel = handLabel;
+        l.pts = evalRes.pts;
+        
+        if (l.winner === 'PLAYER') {
+          playerScore += evalRes.pts;
+          log(`列${idx+1}: あなた獲得！ [${handLabel}] +${evalRes.pts}pt`);
+        } else if (l.winner === 'CPU') {
+          cpuScore += evalRes.pts;
+          log(`列${idx+1}: CPU獲得！ [${handLabel}] +${evalRes.pts}pt`);
+        } else {
+          log(`列${idx+1}: バッティング(同数) 流し [${handLabel}] (${evalRes.pts}pt消滅)`);
+        }
+      });
+
+      document.getElementById('player-score').innerText = `${playerScore} pt`;
+      document.getElementById('cpu-score').innerText = `${cpuScore} pt`;
+    }
+
+    // --- UI レンダリング ---
+    function renderCardHTML(card, extraClass = '') {
+      if (!card) return `<div class="w-10 h-14 bg-slate-100 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 font-bold text-xs">?</div>`;
+      
+      if (card.isJoker) {
+        return `
+          <div class="w-10 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg p-1 flex flex-col justify-between text-white font-bold card-shadow animate-bounce">
+            <div class="text-[9px]">🃏</div>
+            <div class="text-center text-[8px] tracking-tighter">JOKER</div>
+            <div class="text-[9px] text-right">🃏</div>
+          </div>
+        `;
+      }
+
+      const isRed = card.suit === '♥' || card.suit === '♦';
+      const textColor = isRed ? 'text-red-600' : 'text-slate-900';
+      const valStr = card.value === 14 ? 'A' : card.value === 13 ? 'K' : card.value === 12 ? 'Q' : card.value === 11 ? 'J' : card.value;
+
+      return `
+        <div class="w-10 h-14 bg-white border border-slate-200 rounded-lg p-1 flex flex-col justify-between ${textColor} font-bold card-shadow ${extraClass}">
+          <div class="text-[9px] leading-none">${valStr}<br><span class="text-xs leading-none">${card.suit}</span></div>
+          <div class="text-[9px] leading-none text-right">${valStr}</div>
+        </div>
+      `;
+    }
+
+    function render() {
+      // コミュニティカード描画
+      document.getElementById('community-cards').innerHTML = communityCards.map(c => renderCardHTML(c, 'w-12 h-16 text-sm')).join('');
+
+      const usedChips = lanes.reduce((sum, l) => sum + l.playerBet, 0);
+      document.getElementById('remaining-chips').innerText = 13 - usedChips;
+
+      // 縦カラム（列1〜列4）描画
+      const container = document.getElementById('lanes-container');
+      container.innerHTML = '';
+
+      lanes.forEach((lane, idx) => {
+        // ベット時の暫定役判定
+        let tempHand = evaluate4Cards([...communityCards, lane.initialCard]);
+
+        let resultBadge = '';
+        let handStatusBadge = '';
+        let cardBorderClass = 'border-slate-200';
+
+        if (gameState === 'BETTING') {
+          let badgeColor = 'bg-amber-50 border-amber-200 text-amber-800';
+          if (tempHand.name === 'ハイカード') badgeColor = 'bg-amber-100 border-amber-300 text-amber-900 font-black';
+
+          handStatusBadge = `
+            <div class="${badgeColor} border text-[10px] font-bold px-2 py-0.5 rounded-full text-center my-1.5 flex items-center justify-center gap-1">
+              <span class="text-[9px] opacity-75">暫定:</span> ${tempHand.name}
+            </div>
+          `;
+        } else {
+          // ショウダウン時の役表示
+          handStatusBadge = `
+            <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 text-[10px] font-black px-2 py-0.5 rounded-full text-center my-1.5 shadow-sm">
+              ✨ ${lane.finalHandLabel} (${lane.pts}pt)
+            </div>
+          `;
+
+          if (lane.winner === 'PLAYER') {
+            resultBadge = `<div class="bg-indigo-100 text-indigo-700 font-bold px-1.5 py-1 rounded-lg text-[11px] text-center">あなた獲得 (+${lane.pts}pt)</div>`;
+            cardBorderClass = 'border-indigo-400 ring-2 ring-indigo-100';
+          } else if (lane.winner === 'CPU') {
+            resultBadge = `<div class="bg-rose-100 text-rose-700 font-bold px-1.5 py-1 rounded-lg text-[11px] text-center">CPU獲得 (+${lane.pts}pt)</div>`;
+            cardBorderClass = 'border-rose-300';
+          } else {
+            resultBadge = `<div class="bg-slate-200 text-slate-600 font-bold px-1.5 py-1 rounded-lg text-[11px] text-center">引き分け (0pt)</div>`;
+          }
+        }
+
+        const html = `
+          <div class="bg-white rounded-xl p-3 border ${cardBorderClass} card-shadow flex flex-col justify-between min-h-[270px]">
+            
+            <!-- 列ヘッダー -->
+            <div class="w-full border-b border-slate-100 pb-1.5 mb-1 text-center">
+              <span class="text-xs font-black text-slate-500 uppercase tracking-wider">列 ${idx + 1}</span>
+            </div>
+
+            <!-- カード配置エリア -->
+            <div class="flex items-center justify-center gap-1.5 my-1">
+              <div class="flex flex-col items-center">
+                <span class="text-[9px] font-semibold text-slate-400 mb-0.5">1枚目</span>
+                ${renderCardHTML(lane.initialCard)}
+              </div>
+              <div class="flex flex-col items-center">
+                <span class="text-[9px] font-semibold text-slate-400 mb-0.5">2枚目</span>
+                ${renderCardHTML(lane.fifthCard, gameState === 'SHOWDOWN' ? 'border-2 border-amber-400' : '')}
+              </div>
+            </div>
+
+            <!-- 役名表示バッジ -->
+            ${handStatusBadge}
+
+            <!-- 結果バッジ -->
+            ${resultBadge}
+
+            <!-- ベット操作エリア -->
+            <div class="w-full border-t border-slate-100 pt-2 mt-2 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-slate-600">あなた</span>
+                <div class="flex items-center bg-slate-100 rounded-md p-0.5 border border-slate-200">
+                  <button onclick="changeBet(${idx}, -1)" ${gameState !== 'BETTING' ? 'disabled' : ''} class="w-5 h-5 bg-white rounded text-slate-700 font-bold text-xs shadow-sm hover:bg-slate-50 disabled:opacity-30 flex items-center justify-center">-</button>
+                  <span class="w-5 text-center font-black text-indigo-600 text-xs">${lane.playerBet}</span>
+                  <button onclick="changeBet(${idx}, 1)" ${gameState !== 'BETTING' ? 'disabled' : ''} class="w-5 h-5 bg-white rounded text-slate-700 font-bold text-xs shadow-sm hover:bg-slate-50 disabled:opacity-30 flex items-center justify-center">+</button>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="font-bold text-slate-600">CPU</span>
+                <span class="font-black text-rose-600">
+                  ${gameState === 'BETTING' ? '?' : lane.cpuBet + ' 枚'}
+                </span>
+              </div>
+            </div>
+
+          </div>
+        `;
+        container.innerHTML += html;
+      });
+    }
+
+    function log(msg) {
+      const logDiv = document.getElementById('game-log');
+      logDiv.innerHTML += `<div>${msg}</div>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    initRound();
+  </script>
+</body>
+</html>
