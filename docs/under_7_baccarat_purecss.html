@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Under 7 Baccarat - モノクロ13枚対戦ミニゲーム</title>
+    <!-- FontAwesome for minimal card icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            user-select: none;
+        }
+
+        /* Container */
+        .app-container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Header UI */
+        header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            background: #141414;
+            border: 2px solid #333333;
+            border-radius: 8px;
+            padding: 12px 16px;
+            gap: 12px;
+        }
+
+        .brand-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge-tag {
+            font-size: 0.7rem;
+            background: #ffffff;
+            color: #000000;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        /* Scoreboard */
+        .score-board {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: #000000;
+            border: 1px solid #444444;
+            padding: 6px 16px;
+            border-radius: 6px;
+        }
+
+        .score-team {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .dot-container {
+            display: flex;
+            gap: 4px;
+        }
+
+        .score-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            background: #222222;
+        }
+
+        .score-dot.active {
+            background: #ffffff;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            background: #1f1f1f;
+            color: #ffffff;
+            border: 1px solid #555555;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #ffffff;
+            color: #000000;
+            border-color: #ffffff;
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid #ffffff;
+            font-weight: 700;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #cccccc;
+            color: #000000;
+        }
+
+        /* Game Felt / Main Board */
+        .game-board {
+            background: #111111;
+            border: 2px solid #333333;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 520px;
+            gap: 16px;
+            position: relative;
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #888888;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-align: center;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        /* Hand Containers */
+        .hand-area {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            min-height: 110px;
+            align-items: center;
+        }
+
+        /* Playing Card Structure */
+        .card-perspective {
+            perspective: 1000px;
+            width: 60px;
+            height: 90px;
+        }
+
+        @media (min-width: 600px) {
+            .card-perspective {
+                width: 72px;
+                height: 105px;
+            }
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+            border-radius: 6px;
+        }
+
+        .card-inner.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 6px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+
+        .card-front {
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid #cccccc;
+            transform: rotateY(180deg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+
+        .card-back {
+            background: #1a1a1a;
+            border: 2px solid #ffffff;
+            background-image: repeating-linear-gradient(
+                45deg,
+                #222222,
+                #222222 6px,
+                #111111 6px,
+                #111111 12px
+            );
+        }
+
+        .card-selectable {
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .card-selectable:hover {
+            transform: translateY(-8px);
+        }
+
+        .card-selected {
+            transform: translateY(-10px);
+            outline: 3px solid #ffffff;
+            outline-offset: 2px;
+            border-radius: 6px;
+        }
+
+        .card-center-rank {
+            font-size: 1.8rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .card-center-suit {
+            font-size: 0.85rem;
+            opacity: 0.75;
+        }
+
+        /* Center Battle Arena */
+        .battle-arena {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            background: #080808;
+            border: 1px solid #222222;
+            padding: 12px;
+            border-radius: 8px;
+            align-items: center;
+        }
+
+        @media (min-width: 640px) {
+            .battle-arena {
+                grid-template-columns: 1.2fr 2fr 1.2fr;
+            }
+        }
+
+        .cards-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slot-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .slot-title {
+            font-size: 0.65rem;
+            color: #aaaaaa;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .slot-placeholder {
+            border: 2px dashed #444444;
+            border-radius: 6px;
+            background: #141414;
+        }
+
+        .score-tag {
+            font-size: 0.75rem;
+            font-weight: 800;
+            height: 18px;
+            color: #ffffff;
+        }
+
+        /* Enhanced Under 7 Badge Overlay */
+        .slot-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            position: relative; /* Context for badge positioning */
+        }
+
+        .badge-under7 {
+            position: absolute;
+            top: -14px;
+            z-index: 20;
+            font-size: 0.7rem;
+            font-weight: 900;
+            padding: 3px 8px;
+            border-radius: 12px;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .badge-under7.badge-under {
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid #ffffff;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.9);
+            animation: pulse-glow 1s infinite alternate;
+        }
+
+        .badge-under7.badge-over {
+            background: #000000;
+            color: #ffffff;
+            border: 1px solid #888888;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+            animation: pulse-soft 1.5s infinite alternate;
+        }
+
+        .badge-under7.hidden {
+            display: none !important;
+        }
+
+        /* Center slot active under 7 / over 7 state */
+        .slot-placeholder.under7-active {
+            border-color: #ffffff !important;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+
+        .slot-placeholder.over7-active {
+            border-color: #666666 !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+        }
+
+        @keyframes pulse-glow {
+            0% { transform: scale(0.95); box-shadow: 0 0 6px rgba(255, 255, 255, 0.6); }
+            100% { transform: scale(1.08); box-shadow: 0 0 16px rgba(255, 255, 255, 1); }
+        }
+
+        @keyframes pulse-soft {
+            0% { transform: scale(0.97); opacity: 0.85; }
+            100% { transform: scale(1.03); opacity: 1; }
+        }
+
+        .royal-highlight {
+            border: 2px solid #ffffff !important;
+            box-shadow: 0 0 12px #ffffff !important;
+        }
+
+        /* Tracker & History Footer */
+        footer {
+            background: #141414;
+            border: 2px solid #333333;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+            footer {
+                flex-direction: row;
+            }
+        }
+
+        .tracker-section {
+            flex: 2;
+        }
+
+        .tracker-grid {
+            display: grid;
+            grid-template-columns: repeat(13, 1fr);
+            gap: 3px;
+            background: #000000;
+            padding: 6px;
+            border: 1px solid #333333;
+            border-radius: 6px;
+            margin-top: 6px;
+        }
+
+        .tracker-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #1f1f1f;
+            border: 1px solid #333333;
+            border-radius: 4px;
+            padding: 4px 0;
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .tracker-item.played {
+            background: #0a0a0a;
+            color: #444444;
+            border-color: #222222;
+            text-decoration: line-through;
+        }
+
+        .tracker-item.in-hand {
+            background: #ffffff;
+            color: #000000;
+            border-color: #ffffff;
+        }
+
+        .log-section {
+            flex: 1;
+            background: #000000;
+            border: 1px solid #333333;
+            border-radius: 6px;
+            padding: 8px;
+        }
+
+        .log-box {
+            height: 52px;
+            overflow-y: auto;
+            font-size: 0.7rem;
+            color: #cccccc;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 16px;
+        }
+
+        .modal-overlay.hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: #141414;
+            border: 2px solid #ffffff;
+            border-radius: 10px;
+            max-width: 460px;
+            width: 100%;
+            padding: 20px;
+            color: #ffffff;
+            position: relative;
+        }
+
+        .modal-header {
+            font-size: 1.2rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #333333;
+            padding-bottom: 8px;
+        }
+
+        .modal-body {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .modal-box {
+            background: #000000;
+            border: 1px solid #333333;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Top Navigation Header -->
+        <header>
+            <div class="brand-title">
+                <i class="fa-solid fa-diamond"></i>
+                <span>UNDER 7 BACCARAT</span>
+                <span class="badge-tag">1 SUIT MATCH</span>
+            </div>
+
+            <div class="score-board">
+                <div class="score-team">
+                    <span>YOU</span>
+                    <div id="player-match-wins" class="dot-container">
+                        <div class="score-dot"></div>
+                        <div class="score-dot"></div>
+                    </div>
+                </div>
+                <span style="font-size: 0.8rem; color: #666666;">VS</span>
+                <div class="score-team">
+                    <div id="cpu-match-wins" class="dot-container">
+                        <div class="score-dot"></div>
+                        <div class="score-dot"></div>
+                    </div>
+                    <span>CPU</span>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button id="rules-btn" class="btn"><i class="fa-solid fa-circle-info"></i> ルール</button>
+                <button id="reset-btn" class="btn"><i class="fa-solid fa-rotate-right"></i> リセット</button>
+            </div>
+        </header>
+
+        <!-- Main Game Board -->
+        <main class="game-board">
+            
+            <!-- CPU Hand -->
+            <div>
+                <div class="section-label">
+                    <i class="fa-solid fa-robot"></i> CPUの手札 (<span id="cpu-card-count">4</span>枚)
+                </div>
+                <div id="cpu-hand" class="hand-area"></div>
+            </div>
+
+            <!-- Central Battle Arena -->
+            <div class="battle-arena">
+                <!-- Deck status -->
+                <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
+                    <div id="deck-icon" class="card-perspective" style="width: 44px; height: 64px;">
+                        <div class="card-inner">
+                            <div class="card-back" style="display:flex; align-items:center; justify-content:center;">
+                                <i class="fa-solid fa-layer-group" style="color: #ffffff;"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.65rem; color: #888888;">残山札数</div>
+                        <div style="font-size: 0.85rem; font-weight: bold;"><span id="deck-count">5</span> / 13 枚</div>
+                    </div>
+                </div>
+
+                <!-- Card Slots -->
+                <div class="cards-row">
+                    <!-- Center Card -->
+                    <div class="slot-box">
+                        <span class="slot-title">場</span>
+                        <div id="under-7-badge" class="badge-under7 hidden">✨ UNDER 7 ✨</div>
+                        <div id="center-card-slot" class="card-perspective slot-placeholder"></div>
+                        <span id="center-score-tag" class="score-tag"></span>
+                    </div>
+
+                    <span style="font-weight: bold; color: #444444;">+</span>
+
+                    <!-- Player Card -->
+                    <div class="slot-box">
+                        <span class="slot-title">あなた</span>
+                        <div id="player-played-slot" class="card-perspective slot-placeholder"></div>
+                        <span id="player-score-tag" class="score-tag"></span>
+                    </div>
+
+                    <!-- CPU Card -->
+                    <div class="slot-box">
+                        <span class="slot-title">CPU</span>
+                        <div id="cpu-played-slot" class="card-perspective slot-placeholder"></div>
+                        <span id="cpu-score-tag" class="score-tag"></span>
+                    </div>
+                </div>
+
+                <!-- Battle Action -->
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                    <button id="play-card-btn" disabled class="btn btn-primary" style="width: 100%; justify-content: center; padding: 10px;">
+                        <i class="fa-solid fa-play"></i> 勝負する！
+                    </button>
+                    <div id="round-status-msg" style="font-size: 0.7rem; color: #aaaaaa; text-align: center;">
+                        手札を選択してください
+                    </div>
+                </div>
+            </div>
+
+            <!-- Player Hand -->
+            <div>
+                <div class="section-label">
+                    <i class="fa-solid fa-user"></i> あなたの手札 (カードをタップして選択)
+                </div>
+                <div id="player-hand" class="hand-area"></div>
+            </div>
+
+        </main>
+
+        <!-- Footer: Tracker & Log -->
+        <footer>
+            <div class="tracker-section">
+                <div style="font-size: 0.7rem; font-weight: bold; display: flex; justify-content: space-between;">
+                    <span><i class="fa-solid fa-eye"></i> カードカウンター (13枚の出現状況)</span>
+                    <span style="color: #888888; font-size: 0.65rem;">白: 手札 / 取消線: 出現済み</span>
+                </div>
+                <div id="card-tracker" class="tracker-grid"></div>
+            </div>
+
+            <div class="log-section">
+                <div style="font-size: 0.7rem; font-weight: bold; margin-bottom: 4px;">
+                    <i class="fa-solid fa-list"></i> 対戦履歴
+                </div>
+                <div id="game-log" class="log-box"></div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span><i class="fa-solid fa-book"></i> ルールガイド</span>
+                <i id="close-rules-btn" class="fa-solid fa-xmark" style="cursor: pointer;"></i>
+            </div>
+            <div class="modal-body">
+                <div class="modal-box">
+                    <strong>勝利条件：</strong> 先に<strong>2勝</strong>したプレイヤーの勝利となります。
+                </div>
+                <div>
+                    <strong>1. ラウンドの流れ</strong>
+                    <ul style="padding-left: 18px; margin-top: 4px;">
+                        <li>山札から1枚引いて場に伏せられます。</li>
+                        <li>場のカードが <strong>A, 2, 3, 4, 5, 6</strong> の場合、<span class="badge-under7">UNDER 7</span> バッジが表示されます。</li>
+                        <li>両者が手札から1枚ずつ出します。</li>
+                    </ul>
+                </div>
+                <div>
+                    <strong>2. 勝敗判定（バカラ方式）</strong>
+                    <ul style="padding-left: 18px; margin-top: 4px;">
+                        <li>カード点数：A=1, 2～9=数値通り, 10,J,Q,K=<strong>0点</strong></li>
+                        <li>合計点の<strong>下一桁</strong>が9に近い方の勝ちとなります。</li>
+                    </ul>
+                </div>
+                <div class="modal-box">
+                    <strong>特殊役：ロイヤルペア (Royal Pair)</strong><br>
+                    場のカードが絵札(J, Q, K)の時に、自分も絵札(J, Q, K)を出すと、通常のバカラ点数に関わらず勝利します。
+                </div>
+            </div>
+            <button id="confirm-rules-btn" class="btn btn-primary" style="width: 100%; margin-top: 12px; justify-content: center;">
+                理解しました
+            </button>
+        </div>
+    </div>
+
+    <!-- Match Outcome Modal -->
+    <div id="match-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="text-align: center;">
+            <div id="match-icon" style="font-size: 3rem; margin-bottom: 8px;">🏆</div>
+            <h2 id="match-title" style="font-size: 1.5rem; font-weight: 800; margin-bottom: 6px;">YOU WIN!</h2>
+            <p id="match-subtitle" style="font-size: 0.85rem; color: #aaaaaa; margin-bottom: 16px;">2勝先取を達成しました！</p>
+            <button id="new-match-btn" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 10px;">
+                新しいマッチを開始
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Game Constants
+        const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        const SUIT = '♠';
+
+        // State Variables
+        let deck = [];
+        let playerHand = [];
+        let cpuHand = [];
+        let playedHistory = [];
+
+        let centerCard = null;
+        let playerPlayedCard = null;
+        let cpuPlayedCard = null;
+
+        let selectedPlayerCardIndex = null;
+        let isRoundInProgress = false;
+
+        let playerMatchWins = 0;
+        let cpuMatchWins = 0;
+
+        /* Sound synth using Web Audio API */
+        class SoundFX {
+            constructor() { this.ctx = null; }
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+            playTone(freq, duration) {
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+            playFlip() { this.playTone(400, 0.05); }
+            playWin() { this.playTone(800, 0.15); }
+        }
+        const sfx = new SoundFX();
+
+        function getBaccaratValue(rank) {
+            if (rank === 'A') return 1;
+            if (['10', 'J', 'Q', 'K'].includes(rank)) return 0;
+            return parseInt(rank, 10);
+        }
+
+        function isFaceCard(rank) {
+            return ['J', 'Q', 'K'].includes(rank);
+        }
+
+        function createDeck() {
+            return RANKS.map((rank, index) => ({
+                rank: rank,
+                suit: SUIT,
+                value: index + 1,
+                baccaratValue: getBaccaratValue(rank)
+            }));
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function initMatch() {
+            playerMatchWins = 0;
+            cpuMatchWins = 0;
+            playedHistory = [];
+            addLog("--- 新しいマッチ開始 ---");
+            updateMatchWinsUI();
+            startNewDeckCycle();
+        }
+
+        function startNewDeckCycle() {
+            deck = shuffle(createDeck());
+            playerHand = deck.splice(0, 4);
+            cpuHand = deck.splice(0, 4);
+            
+            playerHand.sort((a, b) => a.value - b.value);
+
+            selectedPlayerCardIndex = null;
+            playerPlayedCard = null;
+            cpuPlayedCard = null;
+            centerCard = null;
+
+            addLog("山札をシャッフルし、手札4枚ずつ配りました。");
+            updateTrackerUI();
+            renderHands();
+            prepareRound();
+        }
+
+        function prepareRound() {
+            if (deck.length === 0) {
+                addLog("山札終了。手札を再配布します。");
+                startNewDeckCycle();
+                return;
+            }
+
+            centerCard = deck.pop();
+            selectedPlayerCardIndex = null;
+            playerPlayedCard = null;
+            cpuPlayedCard = null;
+            isRoundInProgress = false;
+
+            document.getElementById('player-played-slot').innerHTML = '';
+            document.getElementById('cpu-played-slot').innerHTML = '';
+            document.getElementById('player-played-slot').classList.remove('royal-highlight');
+            document.getElementById('cpu-played-slot').classList.remove('royal-highlight');
+
+            document.getElementById('player-score-tag').textContent = '';
+            document.getElementById('cpu-score-tag').textContent = '';
+            document.getElementById('center-score-tag').textContent = '';
+
+            const centerSlot = document.getElementById('center-card-slot');
+            centerSlot.innerHTML = createCardHTML(centerCard, false, 'center-card-inner');
+
+            const under7Badge = document.getElementById('under-7-badge');
+            // Check rank: A(1), 2, 3, 4, 5, 6
+            const isUnder7 = ['A', '2', '3', '4', '5', '6'].includes(centerCard.rank);
+            
+            under7Badge.classList.remove('hidden');
+            if (isUnder7) {
+                under7Badge.textContent = "✨ UNDER 7 ✨";
+                under7Badge.className = "badge-under7 badge-under";
+                centerSlot.classList.add('under7-active');
+                centerSlot.classList.remove('over7-active');
+                addLog("場カード: 【UNDER 7】(A~6) が発生中！");
+            } else {
+                under7Badge.textContent = "⚡ 7 or OVER ⚡";
+                under7Badge.className = "badge-under7 badge-over";
+                centerSlot.classList.remove('under7-active');
+                centerSlot.classList.add('over7-active');
+                addLog("場カード: 【7 or OVER】(7~K) が発生中！");
+            }
+
+            document.getElementById('round-status-msg').textContent = "手札から1枚選択してください";
+            document.getElementById('play-card-btn').disabled = true;
+
+            updateDeckUI();
+            renderHands();
+        }
+
+        function createCardHTML(card, isFaceUp, innerId = '') {
+            return `
+                <div id="${innerId}" class="card-inner ${isFaceUp ? 'flipped' : ''}">
+                    <div class="card-back"></div>
+                    <div class="card-front">
+                        <div class="card-center-rank">${card.rank}</div>
+                        <div class="card-center-suit">${card.suit}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderHands() {
+            // Player Hand
+            const playerHandEl = document.getElementById('player-hand');
+            playerHandEl.innerHTML = '';
+            playerHand.forEach((card, idx) => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = `card-perspective card-selectable ${selectedPlayerCardIndex === idx ? 'card-selected' : ''}`;
+                cardDiv.innerHTML = createCardHTML(card, true);
+                cardDiv.onclick = () => selectPlayerCard(idx);
+                playerHandEl.appendChild(cardDiv);
+            });
+
+            // CPU Hand
+            const cpuHandEl = document.getElementById('cpu-hand');
+            cpuHandEl.innerHTML = '';
+            cpuHand.forEach(() => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'card-perspective';
+                cardDiv.style.opacity = '0.8';
+                cardDiv.innerHTML = createCardHTML({ rank: '?', suit: '♠' }, false);
+                cpuHandEl.appendChild(cardDiv);
+            });
+
+            document.getElementById('cpu-card-count').textContent = cpuHand.length;
+        }
+
+        function selectPlayerCard(index) {
+            if (isRoundInProgress) return;
+            selectedPlayerCardIndex = index;
+            sfx.playFlip();
+            renderHands();
+            document.getElementById('play-card-btn').disabled = false;
+            document.getElementById('round-status-msg').textContent = `「${playerHand[index].rank}」選択中。「勝負する！」を押してください。`;
+        }
+
+        function chooseCpuCard() {
+            const isCenterUnder7 = ['A', '2', '3', '4', '5', '6'].includes(centerCard.rank);
+            let bestIndex = 0;
+            let bestScore = -999;
+
+            cpuHand.forEach((card, index) => {
+                let rating = 0;
+                const cardVal = card.baccaratValue;
+
+                if (isFaceCard(card.rank)) {
+                    rating += isCenterUnder7 ? -5 : 15;
+                }
+
+                let possibleCenterVals = isCenterUnder7 ? [1, 2, 3, 4, 5, 6] : [7, 8, 9, 0, 0, 0, 0];
+                let expectedSum = 0;
+                possibleCenterVals.forEach(cVal => {
+                    expectedSum += (cVal + cardVal) % 10;
+                });
+
+                rating += (expectedSum / possibleCenterVals.length) * 3;
+                rating += Math.random();
+
+                if (rating > bestScore) {
+                    bestScore = rating;
+                    bestIndex = index;
+                }
+            });
+
+            return bestIndex;
+        }
+
+        document.getElementById('play-card-btn').addEventListener('click', () => {
+            if (selectedPlayerCardIndex === null || isRoundInProgress) return;
+            isRoundInProgress = true;
+            document.getElementById('play-card-btn').disabled = true;
+
+            playerPlayedCard = playerHand.splice(selectedPlayerCardIndex, 1)[0];
+            const cpuIndex = chooseCpuCard();
+            cpuPlayedCard = cpuHand.splice(cpuIndex, 1)[0];
+
+            renderHands();
+
+            const pSlot = document.getElementById('player-played-slot');
+            const cSlot = document.getElementById('cpu-played-slot');
+
+            pSlot.innerHTML = createCardHTML(playerPlayedCard, false, 'p-played-inner');
+            cSlot.innerHTML = createCardHTML(cpuPlayedCard, false, 'c-played-inner');
+
+            sfx.playFlip();
+            document.getElementById('round-status-msg').textContent = "カードオープン！";
+
+            setTimeout(() => {
+                document.getElementById('center-card-inner').classList.add('flipped');
+                sfx.playFlip();
+
+                setTimeout(() => {
+                    document.getElementById('p-played-inner').classList.add('flipped');
+                    document.getElementById('c-played-inner').classList.add('flipped');
+                    sfx.playFlip();
+
+                    setTimeout(() => {
+                        evaluateRoundResult();
+                    }, 600);
+                }, 500);
+            }, 500);
+        });
+
+        function evaluateRoundResult() {
+            const centerVal = centerCard.baccaratValue;
+            const playerVal = playerPlayedCard.baccaratValue;
+            const cpuVal = cpuPlayedCard.baccaratValue;
+
+            const pScore = (centerVal + playerVal) % 10;
+            const cScore = (centerVal + cpuVal) % 10;
+
+            const isCenterFace = isFaceCard(centerCard.rank);
+            const isPlayerRoyal = isCenterFace && isFaceCard(playerPlayedCard.rank);
+            const isCpuRoyal = isCenterFace && isFaceCard(cpuPlayedCard.rank);
+
+            document.getElementById('center-score-tag').textContent = `(${centerCard.rank}=${centerVal})`;
+            document.getElementById('player-score-tag').textContent = isPlayerRoyal ? "ROYAL!" : `${pScore}点`;
+            document.getElementById('cpu-score-tag').textContent = isCpuRoyal ? "ROYAL!" : `${cScore}点`;
+
+            let winner = null;
+
+            if (isPlayerRoyal && isCpuRoyal) winner = 'draw';
+            else if (isPlayerRoyal) {
+                winner = 'player';
+                document.getElementById('player-played-slot').classList.add('royal-highlight');
+            } else if (isCpuRoyal) {
+                winner = 'cpu';
+                document.getElementById('cpu-played-slot').classList.add('royal-highlight');
+            } else {
+                if (pScore > cScore) winner = 'player';
+                else if (cScore > pScore) winner = 'cpu';
+                else winner = 'draw';
+            }
+
+            playedHistory.push(centerCard, playerPlayedCard, cpuPlayedCard);
+            updateTrackerUI();
+
+            if (winner === 'player') {
+                playerMatchWins++;
+                sfx.playWin();
+                addLog(`勝利: あなた[${playerPlayedCard.rank}] vs CPU[${cpuPlayedCard.rank}] (場:${centerCard.rank}) -> ${pScore}対${cScore}`);
+                document.getElementById('round-status-msg').textContent = "あなたの勝ち！";
+            } else if (winner === 'cpu') {
+                cpuMatchWins++;
+                addLog(`敗北: あなた[${playerPlayedCard.rank}] vs CPU[${cpuPlayedCard.rank}] (場:${centerCard.rank}) -> ${pScore}対${cScore}`);
+                document.getElementById('round-status-msg').textContent = "CPUの勝ち";
+            } else {
+                addLog(`引き分け: あなた[${playerPlayedCard.rank}] vs CPU[${cpuPlayedCard.rank}] (場:${centerCard.rank})`);
+                document.getElementById('round-status-msg').textContent = "引き分け";
+            }
+
+            updateMatchWinsUI();
+
+            setTimeout(() => {
+                if (playerMatchWins >= 2 || cpuMatchWins >= 2) {
+                    showMatchEndModal(playerMatchWins >= 2);
+                } else {
+                    prepareRound();
+                }
+            }, 1800);
+        }
+
+        function updateTrackerUI() {
+            const trackerContainer = document.getElementById('card-tracker');
+            trackerContainer.innerHTML = '';
+
+            RANKS.forEach(rank => {
+                const isPlayed = playedHistory.some(c => c.rank === rank);
+                const isPlayerHolding = playerHand.some(c => c.rank === rank);
+
+                let statusClass = "";
+                if (isPlayed) statusClass = "played";
+                else if (isPlayerHolding) statusClass = "in-hand";
+
+                const item = document.createElement('div');
+                item.className = `tracker-item ${statusClass}`;
+                item.textContent = rank;
+                trackerContainer.appendChild(item);
+            });
+        }
+
+        function updateDeckUI() {
+            document.getElementById('deck-count').textContent = deck.length;
+        }
+
+        function updateMatchWinsUI() {
+            const pDots = document.getElementById('player-match-wins').children;
+            const cDots = document.getElementById('cpu-match-wins').children;
+
+            for (let i = 0; i < 2; i++) {
+                pDots[i].className = `score-dot ${i < playerMatchWins ? 'active' : ''}`;
+                cDots[i].className = `score-dot ${i < cpuMatchWins ? 'active' : ''}`;
+            }
+        }
+
+        function addLog(text) {
+            const logContainer = document.getElementById('game-log');
+            const entry = document.createElement('div');
+            entry.textContent = text;
+            logContainer.prepend(entry);
+        }
+
+        function showMatchEndModal(isPlayerWinner) {
+            const modal = document.getElementById('match-modal');
+            document.getElementById('match-icon').textContent = isPlayerWinner ? "🏆" : "💀";
+            document.getElementById('match-title').textContent = isPlayerWinner ? "VICTORY!" : "DEFEAT";
+            document.getElementById('match-subtitle').textContent = isPlayerWinner ? "2勝先取でCPUに勝利しました！" : "2勝先取されました。";
+            modal.classList.remove('hidden');
+        }
+
+        // Event Listeners
+        document.getElementById('rules-btn').onclick = () => document.getElementById('rules-modal').classList.remove('hidden');
+        document.getElementById('close-rules-btn').onclick = () => document.getElementById('rules-modal').classList.add('hidden');
+        document.getElementById('confirm-rules-btn').onclick = () => document.getElementById('rules-modal').classList.add('hidden');
+        document.getElementById('reset-btn').onclick = () => initMatch();
+        document.getElementById('new-match-btn').onclick = () => {
+            document.getElementById('match-modal').classList.add('hidden');
+            initMatch();
+        };
+
+        window.onload = () => {
+            initMatch();
+        };
+    </script>

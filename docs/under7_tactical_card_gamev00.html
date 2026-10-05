@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Under7 - Tactical Card Game & Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d0d0d;
+            color: #f3f3f3;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .font-serif-title {
+            font-family: 'Cinzel', serif;
+        }
+        .card-perspective {
+            perspective: 1000px;
+        }
+        .card-inner {
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .card-inner.flipped {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        .glow-white {
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.25);
+        }
+        .card-hover {
+            transition: all 0.2s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 10px 20px rgba(255, 255, 255, 0.15);
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 2px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center p-3 sm:p-6 overflow-x-hidden">
+
+    <!-- Header / Navigation -->
+    <header class="w-full max-w-4xl flex flex-col sm:flex-row justify-between items-center border-b border-zinc-800 pb-3 mb-4 gap-3">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-widest font-serif-title text-white">UNDER 7</h1>
+            <p class="text-xs text-zinc-500 uppercase tracking-wider">Tactical Baccarat Duel & Analytics</p>
+        </div>
+        
+        <!-- Tab Controls -->
+        <div class="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1 gap-1">
+            <button id="tab-game-btn" class="px-4 py-1.5 text-xs font-bold rounded-md bg-white text-black transition-all">
+                PLAY VS CPU
+            </button>
+            <button id="tab-sim-btn" class="px-4 py-1.5 text-xs font-bold rounded-md text-zinc-400 hover:text-white transition-all">
+                CPU SIMULATOR
+            </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="rule-btn" class="px-3 py-1.5 text-xs font-semibold border border-zinc-700 hover:border-white rounded text-zinc-300 hover:text-white transition-colors">
+                RULES
+            </button>
+            <button id="restart-btn" class="px-3 py-1.5 text-xs font-semibold bg-zinc-800 text-white hover:bg-zinc-700 rounded transition-colors">
+                RESET
+            </button>
+        </div>
+    </header>
+
+    <!-- ================= VIEW 1: GAMEPLAY MODE ================= -->
+    <main id="game-view" class="w-full max-w-3xl flex flex-col gap-4 sm:gap-6 my-auto">
+
+        <!-- CPU Section -->
+        <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col gap-3">
+            <div class="flex justify-between items-center text-sm">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
+                    <span class="font-bold text-zinc-300">CPU (Counting AI)</span>
+                </div>
+                <div class="flex items-center gap-1.5" id="cpu-wins-container">
+                    <span class="text-xs text-zinc-500 mr-1">WINS:</span>
+                    <div class="w-4 h-4 rounded-full border border-zinc-600 cpu-win-dot"></div>
+                    <div class="w-4 h-4 rounded-full border border-zinc-600 cpu-win-dot"></div>
+                </div>
+            </div>
+
+            <div id="cpu-hand" class="flex justify-center gap-2 sm:gap-3 min-h-[70px] sm:min-h-[90px] items-center">
+                <!-- Dynamically generated -->
+            </div>
+        </div>
+
+        <!-- Battlefield (Center) -->
+        <div class="relative bg-zinc-900 border border-zinc-800 rounded-xl p-4 sm:p-6 flex flex-col items-center justify-center min-h-[220px] sm:min-h-[260px] gap-4">
+            
+            <div id="status-message" class="text-center font-bold text-sm sm:text-base tracking-wide text-zinc-300">
+                カードを選んで出してください
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 sm:gap-6 items-center justify-items-center w-full max-w-md">
+                
+                <!-- Player Slot -->
+                <div class="flex flex-col items-center gap-1">
+                    <span class="text-[10px] text-zinc-500 font-semibold tracking-wider">YOU</span>
+                    <div id="player-slot" class="w-16 h-24 sm:w-20 sm:h-28 border border-dashed border-zinc-700 rounded-lg flex items-center justify-center">
+                        <span class="text-zinc-600 text-xs">READY</span>
+                    </div>
+                    <span id="player-score-tag" class="text-xs font-mono text-zinc-400 h-4"></span>
+                </div>
+
+                <!-- Field Card Slot -->
+                <div class="flex flex-col items-center gap-1 relative">
+                    <div id="field-badge" class="absolute -top-3 z-10 px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-full border border-white bg-black text-white shadow-md transition-all opacity-0 scale-90">
+                        UNDER 7
+                    </div>
+                    <span class="text-[10px] text-zinc-500 font-semibold tracking-wider">FIELD</span>
+                    <div id="field-slot" class="w-16 h-24 sm:w-20 sm:h-28 card-perspective"></div>
+                    <span id="field-info-tag" class="text-[11px] font-mono text-zinc-400 h-4"></span>
+                </div>
+
+                <!-- CPU Slot -->
+                <div class="flex flex-col items-center gap-1">
+                    <span class="text-[10px] text-zinc-500 font-semibold tracking-wider">CPU</span>
+                    <div id="cpu-slot" class="w-16 h-24 sm:w-20 sm:h-28 border border-dashed border-zinc-700 rounded-lg flex items-center justify-center">
+                        <span class="text-zinc-600 text-xs">THINKING</span>
+                    </div>
+                    <span id="cpu-score-tag" class="text-xs font-mono text-zinc-400 h-4"></span>
+                </div>
+
+            </div>
+
+            <div class="h-8 flex items-center justify-center">
+                <button id="action-btn" class="hidden px-6 py-1.5 text-xs font-bold tracking-wider bg-white text-black hover:bg-zinc-200 border border-white rounded-full shadow-lg transition-transform active:scale-95">
+                    NEXT ROUND
+                </button>
+            </div>
+        </div>
+
+        <!-- Player Section -->
+        <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col gap-3">
+            <div class="flex justify-between items-center text-sm">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-white"></span>
+                    <span class="font-bold text-white">YOU</span>
+                </div>
+                <div class="flex items-center gap-1.5" id="player-wins-container">
+                    <span class="text-xs text-zinc-500 mr-1">WINS:</span>
+                    <div class="w-4 h-4 rounded-full border border-zinc-600 player-win-dot"></div>
+                    <div class="w-4 h-4 rounded-full border border-zinc-600 player-win-dot"></div>
+                </div>
+            </div>
+
+            <div id="player-hand" class="flex justify-center gap-2 sm:gap-3 min-h-[90px] sm:min-h-[110px] items-center">
+                <!-- Dynamically generated -->
+            </div>
+        </div>
+
+        <!-- Card Tracker -->
+        <div class="bg-zinc-950 border border-zinc-900 rounded-xl p-3">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-[11px] font-bold text-zinc-400 tracking-wider">CARD TRACKER (OPENED / DISCARDED)</span>
+                <span id="deck-remaining" class="text-[10px] text-zinc-500 font-mono">DECK: 5</span>
+            </div>
+            <div id="card-tracker" class="grid grid-cols-[repeat(13,minmax(0,1fr))] gap-1 text-center font-mono">
+                <!-- 13 horizontal slots -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ================= VIEW 2: CPU SIMULATOR MODE ================= -->
+    <main id="sim-view" class="w-full max-w-4xl flex flex-col gap-4 my-auto hidden">
+        
+        <!-- Controls Config Box -->
+        <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-4 sm:p-5 flex flex-col gap-4">
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <span class="w-2.5 h-2.5 bg-white rounded-full"></span>
+                SIMULATION CONFIGURATION
+            </h2>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <!-- CPU 1 Strategy -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs text-zinc-400 font-semibold">CPU 1 (PLAYER 1):</label>
+                    <select id="sim-cpu1-strat" class="bg-zinc-900 border border-zinc-700 text-white rounded p-2 text-xs focus:outline-none focus:border-white">
+                        <option value="counting" selected>Smart Counting AI</option>
+                        <option value="heuristic">Basic Heuristic AI</option>
+                        <option value="random">Random AI</option>
+                    </select>
+                </div>
+
+                <!-- CPU 2 Strategy -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs text-zinc-400 font-semibold">CPU 2 (PLAYER 2):</label>
+                    <select id="sim-cpu2-strat" class="bg-zinc-900 border border-zinc-700 text-white rounded p-2 text-xs focus:outline-none focus:border-white">
+                        <option value="counting">Smart Counting AI</option>
+                        <option value="heuristic" selected>Basic Heuristic AI</option>
+                        <option value="random">Random AI</option>
+                    </select>
+                </div>
+
+                <!-- Matches Count -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs text-zinc-400 font-semibold">NUMBER OF MATCHES:</label>
+                    <select id="sim-match-count" class="bg-zinc-900 border border-zinc-700 text-white rounded p-2 text-xs focus:outline-none focus:border-white">
+                        <option value="100">1,00 Matches</option>
+                        <option value="1000">1,000 Matches</option>
+                        <option value="5000">5,000 Matches</option>
+                        <option value="10000" selected>10,000 Matches</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-zinc-900">
+                <span id="sim-progress-text" class="text-xs font-mono text-zinc-500">Ready to simulate.</span>
+                <button id="run-sim-btn" class="px-6 py-2.5 bg-white text-black font-extrabold text-xs rounded hover:bg-zinc-200 transition-all flex items-center gap-2">
+                    <span>RUN SIMULATION</span>
+                    <span id="sim-spinner" class="hidden border-2 border-black border-t-transparent rounded-full w-3.5 h-3.5 animate-spin"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Simulation Results Dashboard -->
+        <div id="sim-results" class="opacity-40 pointer-events-none transition-all duration-300 flex flex-col gap-4">
+            
+            <!-- Overall Stats Bar -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col">
+                    <span class="text-[10px] text-zinc-500 font-bold uppercase">CPU 1 Win Rate</span>
+                    <span id="stat-cpu1-winrate" class="text-2xl font-extrabold font-mono text-white">0.0%</span>
+                    <span id="stat-cpu1-wins" class="text-[11px] text-zinc-500 font-mono">0 wins</span>
+                </div>
+                <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col">
+                    <span class="text-[10px] text-zinc-500 font-bold uppercase">CPU 2 Win Rate</span>
+                    <span id="stat-cpu2-winrate" class="text-2xl font-extrabold font-mono text-white">0.0%</span>
+                    <span id="stat-cpu2-wins" class="text-[11px] text-zinc-500 font-mono">0 wins</span>
+                </div>
+                <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col">
+                    <span class="text-[10px] text-zinc-500 font-bold uppercase">Avg Rounds / Match</span>
+                    <span id="stat-avg-rounds" class="text-2xl font-extrabold font-mono text-white">0.0</span>
+                    <span id="stat-avg-reshuffles" class="text-[11px] text-zinc-500 font-mono">0.0 reshuffles/match</span>
+                </div>
+                <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col">
+                    <span class="text-[10px] text-zinc-500 font-bold uppercase">Royal Pair Win Rate</span>
+                    <span id="stat-royal-winrate" class="text-2xl font-extrabold font-mono text-white">0.0%</span>
+                    <span id="stat-royal-count" class="text-[11px] text-zinc-500 font-mono">0 total triggered</span>
+                </div>
+            </div>
+
+            <!-- Deep Dive Breakdown -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                <!-- Win Causes Breakdown Chart -->
+                <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col gap-3">
+                    <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Round Victory Score Distribution</h3>
+                    <div id="score-distribution-chart" class="flex flex-col gap-2 pt-1 font-mono text-xs">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+
+                <!-- Royal Pair & Edge Stats -->
+                <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between gap-3">
+                    <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Royal Pair & First-Mover Analysis</h3>
+                    
+                    <div class="space-y-2 text-xs font-mono">
+                        <div class="flex justify-between py-1.5 border-b border-zinc-900">
+                            <span class="text-zinc-400">Total Royal Pairs Formed:</span>
+                            <span id="stat-total-royals" class="text-white font-bold">0</span>
+                        </div>
+                        <div class="flex justify-between py-1.5 border-b border-zinc-900">
+                            <span class="text-zinc-400">Double Royal Pair Draws:</span>
+                            <span id="stat-double-royals" class="text-white font-bold">0</span>
+                        </div>
+                        <div class="flex justify-between py-1.5 border-b border-zinc-900">
+                            <span class="text-zinc-400">CPU 1 First Seat Bias:</span>
+                            <span id="stat-first-seat-bias" class="text-white font-bold">0.0%</span>
+                        </div>
+                        <div class="flex justify-between py-1.5">
+                            <span class="text-zinc-400">Total Rounds Simulated:</span>
+                            <span id="stat-total-rounds" class="text-white font-bold">0</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-zinc-900 border border-zinc-800 rounded text-[11px] text-zinc-400 leading-relaxed">
+                        <strong class="text-white">分析のヒント:</strong> カウンティングAI（Smart）は、場札が7以上の場合に絵札の残数を算出し、ロイヤルペアの狙い目を高精度で捉えます。
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-4xl text-center text-[11px] text-zinc-600 mt-4 border-t border-zinc-900 pt-3">
+        Under7 Tactical Card Game & Simulation Suite &bull; Monotone Edition
+    </footer>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-zinc-900 border border-zinc-700 rounded-xl max-w-md w-full p-6 text-zinc-300 text-xs sm:text-sm leading-relaxed space-y-4">
+            <h2 class="text-xl font-bold font-serif-title text-white border-b border-zinc-700 pb-2">GAME RULES</h2>
+            <ul class="list-disc pl-5 space-y-1.5 text-zinc-300">
+                <li>13枚のトランプ（A～K）を使用する2人対戦。先に<strong class="text-white">2勝</strong>した方の勝利です。</li>
+                <li>山札から1枚引いて場に伏せられます。場札が<strong class="text-white">A～6の時だけ「Under 7」</strong>バッジが表示されます。</li>
+                <li>手札から1枚選び、場札＋手札で勝負します。</li>
+                <li><strong class="text-white">点数計算（バカラ方式）：</strong><br>
+                    A=1点、2～9=数字通り、10～K=0点。<br>
+                    （合計の下一桁が9に近い方が勝ち）
+                </li>
+                <li><strong class="text-white">ロイヤルペア（特殊判定）：</strong><br>
+                    場札と自分のカードが両方とも<strong class="text-white">【J, Q, K】（絵札）</strong>の場合、通常点数に無条件勝利！<br>
+                    ※10は0点ですが、ロイヤルペアの対象外です。<br>
+                    ※両者がロイヤルペアの場合は引き分け。
+                </li>
+                <li>※「A+9=10(0点)」などは通常の0点扱いとなります。</li>
+                <li>手札が無くなると、使った13枚を再度シャッフルして勝利数を維持したまま配り直します。</li>
+            </ul>
+            <div class="pt-2 text-right">
+                <button id="close-rules-btn" class="px-5 py-2 bg-white text-black font-bold text-xs rounded hover:bg-zinc-200">
+                    CLOSE
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* CONSTANTS & GAME ENGINE CORE */
+        const CARD_NAMES = { 1: 'A', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K' };
+        
+        let deck = [];
+        let playerHand = [];
+        let cpuHand = [];
+        let currentFieldCard = null;
+        let playerSelectedCard = null;
+        let cpuSelectedCard = null;
+
+        let playerWins = 0;
+        let cpuWins = 0;
+        let gamePhase = 'READY';
+        let openCardsHistory = new Set();
+
+        /* DOM REFS */
+        let gameViewEl, simViewEl, tabGameBtn, tabSimBtn;
+        let playerHandEl, cpuHandEl, fieldSlotEl, playerSlotEl, cpuSlotEl;
+        let statusMessageEl, actionBtnEl, fieldBadgeEl, cardTrackerEl, deckRemainingEl;
+        let playerWinDots, cpuWinDots;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initDOM();
+            startNewMatch();
+        });
+
+        function initDOM() {
+            gameViewEl = document.getElementById('game-view');
+            simViewEl = document.getElementById('sim-view');
+            tabGameBtn = document.getElementById('tab-game-btn');
+            tabSimBtn = document.getElementById('tab-sim-btn');
+
+            playerHandEl = document.getElementById('player-hand');
+            cpuHandEl = document.getElementById('cpu-hand');
+            fieldSlotEl = document.getElementById('field-slot');
+            playerSlotEl = document.getElementById('player-slot');
+            cpuSlotEl = document.getElementById('cpu-slot');
+            statusMessageEl = document.getElementById('status-message');
+            actionBtnEl = document.getElementById('action-btn');
+            fieldBadgeEl = document.getElementById('field-badge');
+            cardTrackerEl = document.getElementById('card-tracker');
+            deckRemainingEl = document.getElementById('deck-remaining');
+
+            playerWinDots = document.querySelectorAll('.player-win-dot');
+            cpuWinDots = document.querySelectorAll('.cpu-win-dot');
+
+            /* Event Listeners */
+            tabGameBtn.addEventListener('click', () => switchTab('game'));
+            tabSimBtn.addEventListener('click', () => switchTab('sim'));
+
+            document.getElementById('rule-btn').addEventListener('click', () => {
+                document.getElementById('rules-modal').classList.remove('hidden');
+            });
+            document.getElementById('close-rules-btn').addEventListener('click', () => {
+                document.getElementById('rules-modal').classList.add('hidden');
+            });
+            document.getElementById('restart-btn').addEventListener('click', () => {
+                startNewMatch();
+            });
+            actionBtnEl.addEventListener('click', handleActionButton);
+
+            document.getElementById('run-sim-btn').addEventListener('click', runSimulationEngine);
+        }
+
+        function switchTab(tab) {
+            if (tab === 'game') {
+                gameViewEl.classList.remove('hidden');
+                simViewEl.classList.add('hidden');
+                tabGameBtn.className = "px-4 py-1.5 text-xs font-bold rounded-md bg-white text-black transition-all";
+                tabSimBtn.className = "px-4 py-1.5 text-xs font-bold rounded-md text-zinc-400 hover:text-white transition-all";
+            } else {
+                gameViewEl.classList.add('hidden');
+                simViewEl.classList.remove('hidden');
+                tabSimBtn.className = "px-4 py-1.5 text-xs font-bold rounded-md bg-white text-black transition-all";
+                tabGameBtn.className = "px-4 py-1.5 text-xs font-bold rounded-md text-zinc-400 hover:text-white transition-all";
+            }
+        }
+
+        /* ------------------ INTERACTIVE GAMEPLAY ENGINE ------------------ */
+
+        function startNewMatch() {
+            playerWins = 0;
+            cpuWins = 0;
+            openCardsHistory.clear();
+            updateWinIndicators();
+            resetAndDealDeck();
+        }
+
+        function resetAndDealDeck() {
+            deck = Array.from({ length: 13 }, (_, i) => i + 1);
+            shuffleArray(deck);
+
+            playerHand = deck.splice(0, 4).sort((a, b) => a - b);
+            cpuHand = deck.splice(0, 4).sort((a, b) => a - b);
+
+            startNewRound();
+        }
+
+        function reshuffleKeepScores() {
+            setStatus("手札終了。カードを再シャッフルして配り直します。");
+            setTimeout(() => {
+                deck = Array.from({ length: 13 }, (_, i) => i + 1);
+                shuffleArray(deck);
+                openCardsHistory.clear();
+
+                playerHand = deck.splice(0, 4).sort((a, b) => a - b);
+                cpuHand = deck.splice(0, 4).sort((a, b) => a - b);
+
+                startNewRound();
+            }, 1200);
+        }
+
+        function startNewRound() {
+            if (playerWins >= 2 || cpuWins >= 2) {
+                endGame();
+                return;
+            }
+
+            if (playerHand.length === 0 && cpuHand.length === 0) {
+                reshuffleKeepScores();
+                return;
+            }
+
+            currentFieldCard = deck.pop();
+            playerSelectedCard = null;
+            cpuSelectedCard = null;
+            gamePhase = 'SELECTING';
+
+            playerSlotEl.innerHTML = `<span class="text-zinc-600 text-xs">READY</span>`;
+            cpuSlotEl.innerHTML = `<span class="text-zinc-600 text-xs font-mono text-[10px]">THINKING</span>`;
+            document.getElementById('player-score-tag').textContent = '';
+            document.getElementById('cpu-score-tag').textContent = '';
+            document.getElementById('field-info-tag').textContent = '';
+
+            actionBtnEl.classList.add('hidden');
+            fieldSlotEl.innerHTML = createCardHTML(currentFieldCard, false, 'field-card-inner');
+        if(playerHand.length >= 3){
+            if (currentFieldCard <= 6) {
+                fieldBadgeEl.textContent = "UNDER 7";
+                fieldBadgeEl.className = "absolute -top-3 z-10 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wider rounded-full border border-white bg-white text-black shadow-lg transition-all scale-100 opacity-100";
+            } else {
+                fieldBadgeEl.textContent = "7 OR OVER";
+                fieldBadgeEl.className = "absolute -top-3 z-10 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wider rounded-full border border-zinc-700 bg-zinc-900 text-zinc-400 shadow-lg transition-all scale-100 opacity-100";
+            }
+        } else {
+            // 2回目以降は非表示にする
+            fieldBadgeEl.className = "absolute -top-3 z-10 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wider rounded-full border border-white bg-black text-white shadow-md transition-all opacity-0 scale-90";
+        }
+
+            setStatus("あなたの手札から出したいカードを選んでください");
+
+            renderHands();
+            renderTracker();
+        }
+
+        function createCardHTML(value, isFaceUp = true, customId = '') {
+            const name = CARD_NAMES[value];
+            
+            return `
+            <div id="${customId}" class="card-inner w-full h-full relative cursor-pointer ${isFaceUp ? 'flipped' : ''}">
+                <div class="card-front absolute inset-0 bg-zinc-900 border-2 border-zinc-700 rounded-lg flex items-center justify-center p-1 shadow-md">
+                    <div class="w-full h-full border border-zinc-800 rounded flex items-center justify-center bg-[radial-gradient(#333_1px,transparent_1px)] [background-size:8px_8px]">
+                        <span class="text-zinc-600 font-serif-title font-bold text-xs">U7</span>
+                    </div>
+                </div>
+                <div class="card-back absolute inset-0 bg-white text-black border-2 border-black rounded-lg p-1 sm:p-1.5 flex flex-col justify-between shadow-md select-none">
+                    <div class="flex justify-between items-start leading-none">
+                        <span class="text-xs sm:text-sm font-black">♠</span>
+                        <span class="text-xs sm:text-sm font-black">　</span>
+                    </div>
+                    <div class="text-center my-auto font-serif-title font-black text-2xl sm:text-3xl leading-none tracking-tighter">
+                        ${name}
+                    </div>
+                    <div class="flex justify-between items-start leading-none rotate-180">
+                        <span class="text-xs sm:text-sm font-black">♠</span>
+                        <span class="text-xs sm:text-sm font-black"></span>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        function renderHands() {
+            playerHandEl.innerHTML = '';
+            playerHand.forEach((cardVal) => {
+                const cardContainer = document.createElement('div');
+                cardContainer.className = 'w-14 h-20 sm:w-16 sm:h-24 card-perspective card-hover';
+                cardContainer.innerHTML = createCardHTML(cardVal, true);
+                
+                cardContainer.addEventListener('click', () => {
+                    if (gamePhase === 'SELECTING') {
+                        onPlayerSelectCard(cardVal);
+                    }
+                });
+                playerHandEl.appendChild(cardContainer);
+            });
+
+            cpuHandEl.innerHTML = '';
+            cpuHand.forEach(() => {
+                const cardContainer = document.createElement('div');
+                cardContainer.className = 'w-12 h-16 sm:w-14 sm:h-20 card-perspective';
+                cardContainer.innerHTML = createCardHTML(0, false);
+                cpuHandEl.appendChild(cardContainer);
+            });
+        }
+
+        /* CPU CHOICE LOGIC STRATEGIES */
+        function chooseCardByStrategy(hand, strategyType, fieldCard, knownHistory) {
+            if (hand.length === 1) return hand[0];
+
+            if (strategyType === 'random') {
+                return hand[Math.floor(Math.random() * hand.length)];
+            }
+            const isFirstRound = (hand.length >= 3);
+            const isUnder7 = isFirstRound ? (fieldCard <= 6) : false; // 初回以外はUnder7判定を使わない
+
+            if (strategyType === 'heuristic') {
+                let bestCard = hand[0];
+                let bestVal = -1;
+
+                hand.forEach(card => {
+                    let val = 0;
+                    if (isFirstRound && isUnder7) {
+                        val = card < 10 ? (card + 3) % 10 : 0;
+                    } else {
+                        // Royal Pair target (J, Q, K) or high baccarat score
+                        val = card >= 11 ? 12 : (card >= 10 ? 0 : (card + 8) % 10);
+                    }
+                    if (val > bestVal) {
+                        bestVal = val;
+                        bestCard = card;
+                    }
+                });
+                return bestCard;
+            }
+
+            // 'counting' Strategy
+            const knownCards = new Set([...knownHistory, ...hand]);
+            let candidates = hand.map(card => {
+                let score = 0;
+                const isRoyal = isRoyalCard(card);
+
+                if (isFirstRound && isUnder7) {
+                    if (isRoyal) {
+                        score = 1; // Low priority for J,Q,K when field is Under7
+                    } else {
+                        const baccaratVal = card >= 10 ? 0 : card;
+                        const baccaratScore = (baccaratVal + 3.5) % 10;
+                        score = baccaratScore;
+                    }
+                } else {
+                    if (isRoyal) {
+                        score = 10; // High priority for Royal Pair with J, Q, K
+                    } else {
+                        const baccaratVal = card >= 10 ? 0 : card;
+                        score = (baccaratVal + 8.5) % 10;
+                    }
+                }
+                return { card, score };
+            });
+
+            candidates.sort((a, b) => (b.score + Math.random() * 0.4) - (a.score + Math.random() * 0.4));
+            return candidates[0].card;
+        }
+
+        function onPlayerSelectCard(cardVal) {
+            gamePhase = 'PROCESSING';
+            playerSelectedCard = cardVal;
+            cpuSelectedCard = chooseCardByStrategy(cpuHand, 'counting', currentFieldCard, openCardsHistory);
+
+            playerHand = playerHand.filter(c => c !== cardVal);
+            cpuHand = cpuHand.filter(c => c !== cpuSelectedCard);
+
+            renderHands();
+
+            playerSlotEl.innerHTML = createCardHTML(playerSelectedCard, false, 'player-slot-card');
+            cpuSlotEl.innerHTML = createCardHTML(cpuSelectedCard, false, 'cpu-slot-card');
+
+            setStatus("両者のカードが出揃いました...");
+
+            setTimeout(() => {
+                revealCards();
+            }, 800);
+        }
+
+        function revealCards() {
+            const fieldInner = document.getElementById('field-card-inner');
+            const playerInner = document.getElementById('player-slot-card');
+            const cpuInner = document.getElementById('cpu-slot-card');
+
+            if (fieldInner) fieldInner.classList.add('flipped');
+            if (playerInner) playerInner.classList.add('flipped');
+            if (cpuInner) cpuInner.classList.add('flipped');
+
+            openCardsHistory.add(currentFieldCard);
+            openCardsHistory.add(playerSelectedCard);
+            openCardsHistory.add(cpuSelectedCard);
+            renderTracker();
+
+            setTimeout(() => {
+                judgeRound();
+            }, 700);
+        }
+
+        function getBaccaratValue(card) {
+            return card >= 10 ? 0 : card;
+        }
+
+        function isRoyalCard(card) {
+            return card >= 11; // J (11), Q (12), K (13) only
+        }
+
+        function judgeRound() {
+            gamePhase = 'REVEALED';
+
+            const isFieldRoyal = isRoyalCard(currentFieldCard);
+            const isPlayerRoyal = isRoyalCard(playerSelectedCard);
+            const isCpuRoyal = isRoyalCard(cpuSelectedCard);
+
+            const playerRoyal = isFieldRoyal && isPlayerRoyal;
+            const cpuRoyal = isFieldRoyal && isCpuRoyal;
+
+            const pScore = (getBaccaratValue(currentFieldCard) + getBaccaratValue(playerSelectedCard)) % 10;
+            const cScore = (getBaccaratValue(currentFieldCard) + getBaccaratValue(cpuSelectedCard)) % 10;
+
+            document.getElementById('field-info-tag').textContent = `場: ${CARD_NAMES[currentFieldCard]}`;
+            document.getElementById('player-score-tag').textContent = playerRoyal ? "ROYAL PAIR!" : `${pScore} 点`;
+            document.getElementById('cpu-score-tag').textContent = cpuRoyal ? "ROYAL PAIR!" : `${cScore} 点`;
+
+            let resultMsg = "";
+
+            if (playerRoyal && cpuRoyal) {
+                resultMsg = "【引き分け】両者ロイヤルペア！";
+            } else if (playerRoyal) {
+                resultMsg = "【あなたの勝利】ロイヤルペア達成！";
+                playerWins++;
+            } else if (cpuRoyal) {
+                resultMsg = "【CPUの勝利】ロイヤルペア達成！";
+                cpuWins++;
+            } else {
+                if (pScore > cScore) {
+                    resultMsg = `【あなたの勝利】${pScore} 点 vs ${cScore} 点`;
+                    playerWins++;
+                } else if (cScore > pScore) {
+                    resultMsg = `【CPUの勝利】${pScore} 点 vs ${cScore} 点`;
+                    cpuWins++;
+                } else {
+                    resultMsg = `【引き分け】${pScore} 点 vs ${cScore} 点`;
+                }
+            }
+
+            setStatus(resultMsg);
+            updateWinIndicators();
+
+            if (playerWins >= 2 || cpuWins >= 2) {
+                actionBtnEl.textContent = "RESULT";
+            } else {
+                actionBtnEl.textContent = "NEXT ROUND";
+            }
+            actionBtnEl.classList.remove('hidden');
+        }
+
+        function handleActionButton() {
+            if (playerWins >= 2 || cpuWins >= 2) {
+                endGame();
+            } else {
+                startNewRound();
+            }
+        }
+
+        function updateWinIndicators() {
+            playerWinDots.forEach((dot, idx) => {
+                dot.className = idx < playerWins ? "w-4 h-4 rounded-full bg-white border border-white glow-white player-win-dot" : "w-4 h-4 rounded-full border border-zinc-600 player-win-dot";
+            });
+            cpuWinDots.forEach((dot, idx) => {
+                dot.className = idx < cpuWins ? "w-4 h-4 rounded-full bg-zinc-300 border border-zinc-300 cpu-win-dot" : "w-4 h-4 rounded-full border border-zinc-600 cpu-win-dot";
+            });
+        }
+
+        function endGame() {
+            gamePhase = 'GAME_OVER';
+            actionBtnEl.classList.add('hidden');
+
+            if (playerWins >= 2) {
+                setStatus("🎉 MATCH VICTORY! 先に2勝達成しました！");
+            } else {
+                setStatus("💀 MATCH DEFEAT... CPUに2勝されました");
+            }
+        }
+
+        function setStatus(msg) {
+            statusMessageEl.textContent = msg;
+        }
+
+        function renderTracker() {
+            cardTrackerEl.innerHTML = '';
+            deckRemainingEl.textContent = `DECK: ${deck.length}`;
+
+            for (let i = 1; i <= 13; i++) {
+                const name = CARD_NAMES[i];
+                const isOpen = openCardsHistory.has(i);
+                
+                const slot = document.createElement('div');
+                slot.className = `py-1 sm:py-1.5 rounded border text-[9px] sm:text-xs font-bold transition-all ${
+                    isOpen 
+                    ? 'bg-zinc-800/40 text-zinc-600 border-zinc-800/60 line-through opacity-40' 
+                    : 'bg-zinc-900 text-white border-zinc-700'
+                }`;
+                slot.textContent = name;
+                cardTrackerEl.appendChild(slot);
+            }
+        }
+
+        /* ------------------ CPU VS CPU AUTOMATED SIMULATION ENGINE ------------------ */
+
+        function runSimulationEngine() {
+            const cpu1Strat = document.getElementById('sim-cpu1-strat').value;
+            const cpu2Strat = document.getElementById('sim-cpu2-strat').value;
+            const totalMatches = parseInt(document.getElementById('sim-match-count').value, 10);
+
+            const spinner = document.getElementById('sim-spinner');
+            const progressText = document.getElementById('sim-progress-text');
+            const resultsContainer = document.getElementById('sim-results');
+            const runBtn = document.getElementById('run-sim-btn');
+
+            spinner.classList.remove('hidden');
+            runBtn.disabled = true;
+            runBtn.classList.add('opacity-50');
+            progressText.textContent = `Simulating ${totalMatches.toLocaleString()} matches (${cpu1Strat} vs ${cpu2Strat})...`;
+
+            setTimeout(() => {
+                const stats = simulateMatches(totalMatches, cpu1Strat, cpu2Strat);
+                renderSimulationResults(stats, totalMatches);
+
+                spinner.classList.add('hidden');
+                runBtn.disabled = false;
+                runBtn.classList.remove('opacity-50');
+                resultsContainer.classList.remove('opacity-40', 'pointer-events-none');
+                progressText.textContent = `Simulation completed for ${totalMatches.toLocaleString()} matches.`;
+            }, 50);
+        }
+
+        function simulateMatches(numMatches, strat1, strat2) {
+            let cpu1Wins = 0;
+            let cpu2Wins = 0;
+            let totalRounds = 0;
+            let totalReshuffles = 0;
+
+            let royalPairCount = 0;
+            let royalPairWins = 0;
+            let doubleRoyalDraws = 0;
+
+            // Score win counts (Royal Pair, 9, 8, 7, ..., 0)
+            const scoreWinDistribution = { 'ROYAL': 0, 9: 0, 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0, 0: 0 };
+
+            for (let m = 0; m < numMatches; m++) {
+                let mCpu1Wins = 0;
+                let mCpu2Wins = 0;
+                let reshufflesInMatch = 0;
+
+                let simDeck = Array.from({ length: 13 }, (_, i) => i + 1);
+                shuffleArray(simDeck);
+
+                let hand1 = simDeck.splice(0, 4);
+                let hand2 = simDeck.splice(0, 4);
+                let simHistory = new Set();
+
+                while (mCpu1Wins < 2 && mCpu2Wins < 2) {
+                    if (hand1.length === 0 && hand2.length === 0) {
+                        reshufflesInMatch++;
+                        simDeck = Array.from({ length: 13 }, (_, i) => i + 1);
+                        shuffleArray(simDeck);
+                        hand1 = simDeck.splice(0, 4);
+                        hand2 = simDeck.splice(0, 4);
+                        simHistory.clear();
+                    }
+
+                    totalRounds++;
+                    const field = simDeck.pop();
+
+                    const c1 = chooseCardByStrategy(hand1, strat1, field, simHistory);
+                    const c2 = chooseCardByStrategy(hand2, strat2, field, simHistory);
+
+                    hand1 = hand1.filter(card => card !== c1);
+                    hand2 = hand2.filter(card => card !== c2);
+
+                    simHistory.add(field);
+                    simHistory.add(c1);
+                    simHistory.add(c2);
+
+                    // Round Outcome
+                    const isFieldRoyal = isRoyalCard(field);
+                    const r1Royal = isRoyalCard(c1);
+                    const r2Royal = isRoyalCard(c2);
+
+                    const royal1 = isFieldRoyal && r1Royal;
+                    const royal2 = isFieldRoyal && r2Royal;
+
+                    const s1 = (getBaccaratValue(field) + getBaccaratValue(c1)) % 10;
+                    const s2 = (getBaccaratValue(field) + getBaccaratValue(c2)) % 10;
+
+                    if (royal1 || royal2) {
+                        royalPairCount++;
+                        if (royal1 && royal2) {
+                            doubleRoyalDraws++;
+                        } else if (royal1) {
+                            mCpu1Wins++;
+                            royalPairWins++;
+                            scoreWinDistribution['ROYAL']++;
+                        } else {
+                            mCpu2Wins++;
+                            royalPairWins++;
+                            scoreWinDistribution['ROYAL']++;
+                        }
+                    } else {
+                        if (s1 > s2) {
+                            mCpu1Wins++;
+                            scoreWinDistribution[s1]++;
+                        } else if (s2 > s1) {
+                            mCpu2Wins++;
+                            scoreWinDistribution[s2]++;
+                        }
+                    }
+                }
+
+                if (mCpu1Wins >= 2) cpu1Wins++;
+                if (mCpu2Wins >= 2) cpu2Wins++;
+                totalReshuffles += reshufflesInMatch;
+            }
+
+            return {
+                cpu1Wins,
+                cpu2Wins,
+                totalRounds,
+                totalReshuffles,
+                royalPairCount,
+                royalPairWins,
+                doubleRoyalDraws,
+                scoreWinDistribution
+            };
+        }
+
+        function renderSimulationResults(stats, totalMatches) {
+            const cpu1Winrate = ((stats.cpu1Wins / totalMatches) * 100).toFixed(1);
+            const cpu2Winrate = ((stats.cpu2Wins / totalMatches) * 100).toFixed(1);
+            const avgRounds = (stats.totalRounds / totalMatches).toFixed(2);
+            const avgReshuffles = (stats.totalReshuffles / totalMatches).toFixed(2);
+
+            const royalWinrate = stats.royalPairCount > 0 ? ((stats.royalPairWins / stats.royalPairCount) * 100).toFixed(1) : "0.0";
+
+            document.getElementById('stat-cpu1-winrate').textContent = `${cpu1Winrate}%`;
+            document.getElementById('stat-cpu1-wins').textContent = `${stats.cpu1Wins.toLocaleString()} wins`;
+
+            document.getElementById('stat-cpu2-winrate').textContent = `${cpu2Winrate}%`;
+            document.getElementById('stat-cpu2-wins').textContent = `${stats.cpu2Wins.toLocaleString()} wins`;
+
+            document.getElementById('stat-avg-rounds').textContent = avgRounds;
+            document.getElementById('stat-avg-reshuffles').textContent = `${avgReshuffles} reshuffles/match`;
+
+            document.getElementById('stat-royal-winrate').textContent = `${royalWinrate}%`;
+            document.getElementById('stat-royal-count').textContent = `${stats.royalPairCount.toLocaleString()} total triggered`;
+
+            document.getElementById('stat-total-royals').textContent = stats.royalPairCount.toLocaleString();
+            document.getElementById('stat-double-royals').textContent = stats.doubleRoyalDraws.toLocaleString();
+            document.getElementById('stat-first-seat-bias').textContent = `${cpu1Winrate}%`;
+            document.getElementById('stat-total-rounds').textContent = stats.totalRounds.toLocaleString();
+
+            // Render Distribution Chart
+            const chartContainer = document.getElementById('score-distribution-chart');
+            chartContainer.innerHTML = '';
+
+            const keys = ['ROYAL', 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+            const maxVal = Math.max(...Object.values(stats.scoreWinDistribution), 1);
+
+            keys.forEach(key => {
+                const count = stats.scoreWinDistribution[key] || 0;
+                const pct = ((count / stats.totalRounds) * 100).toFixed(1);
+                const barWidth = Math.max(((count / maxVal) * 100), 2);
+
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 text-[11px]';
+                row.innerHTML = `
+                    <span class="w-16 font-bold text-zinc-300 text-right">${key === 'ROYAL' ? 'ROYAL' : key + ' Pts'}</span>
+                    <div class="flex-1 bg-zinc-900 border border-zinc-800 rounded-full h-3 overflow-hidden flex items-center">
+                        <div class="bg-white h-full rounded-full transition-all" style="width: ${barWidth}%"></div>
+                    </div>
+                    <span class="w-16 text-zinc-400 font-mono">${pct}% (${count})</span>
+                `;
+                chartContainer.appendChild(row);
+            });
+        }
+
+        /* Helper Utility */
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+    </script>
+</body>
+</html>
